@@ -63,7 +63,7 @@ export function printReceipt(order, items) {
     /* ── เลขคิว ── */
     .queue-wrap  { text-align: center; padding: 4px 0 2px; }
     .queue-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; color: #555; }
-    .queue-num   { font-size: 72px; font-weight: 800; line-height: 1; letter-spacing: -2px; }
+    .queue-num   { font-size: 48px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 
     /* ── หัวร้าน ── */
     .shop-name { font-size: 17px; font-weight: 700; }
