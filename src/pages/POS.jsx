@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { ShoppingCart, Plus, Minus, Trash2, CheckCircle, RotateCcw, X } from 'lucide-react'
+import { printReceipt } from '../lib/printUtils'
+import { ShoppingCart, Plus, Minus, Trash2, CheckCircle, RotateCcw, X, Printer } from 'lucide-react'
 
 // ปุ่มตัวเลือกหมายเหตุ แบ่งเป็นกลุ่ม
 const NOTE_GROUPS = [
@@ -34,6 +35,7 @@ export default function POS() {
   const [loading,    setLoading]    = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [success,    setSuccess]    = useState(null)
+  const [lastOrder,  setLastOrder]  = useState(null)  // { order, items } สำหรับปริ้น
 
   // Modal ปรับแต่ง (size + note)
   const [customize,  setCustomize]  = useState(null)
@@ -200,13 +202,23 @@ export default function POS() {
         }
       }
 
+      // บันทึกออเดอร์ล่าสุดไว้สำหรับปริ้น
+      const printItems = cart.map(i => ({
+        name:      i.name,
+        size_name: i.sizeName || null,
+        note:      i.note     || null,
+        quantity:  i.qty,
+        price:     i.price,
+      }))
+      setLastOrder({ order, items: printItems })
+
       setSuccess(`ออเดอร์ #${order.order_number} สำเร็จ! ยอด ฿${total.toLocaleString()}`)
       clearCart()
     } catch (e) {
       alert('เกิดข้อผิดพลาด: ' + e.message)
     } finally {
       setSubmitting(false)
-      setTimeout(() => setSuccess(null), 4000)
+      setTimeout(() => { setSuccess(null); setLastOrder(null) }, 30000)
     }
   }
 
@@ -354,8 +366,19 @@ export default function POS() {
         </div>
 
         {success && (
-          <div className="mt-3 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm font-medium text-center">
-            ✅ {success}
+          <div className="mt-3 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">
+            <p className="font-medium text-center mb-2">✅ {success}</p>
+            {lastOrder && (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => printReceipt(lastOrder.order, lastOrder.items)}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium
+                             bg-coffee-100 text-coffee-800 border border-coffee-300 hover:bg-coffee-200 transition-colors"
+                >
+                  <Printer size={13} /> ปริ้นใบเสร็จ
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

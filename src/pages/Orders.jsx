@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { RefreshCw, ChevronDown } from 'lucide-react'
+import { printReceipt } from '../lib/printUtils'
+import { RefreshCw, ChevronDown, Printer } from 'lucide-react'
 
 const STATUS_LABELS = {
   pending:   { label: 'รอดำเนินการ', badge: 'badge-pending',   next: 'preparing', nextLabel: 'เริ่มทำ' },
@@ -123,7 +124,7 @@ export default function Orders() {
                       </p>
                     )}
                     {/* Actions */}
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {s.next && (
                         <button
                           onClick={() => updateStatus(order.id, s.next)}
@@ -140,6 +141,15 @@ export default function Orders() {
                           ยกเลิก
                         </button>
                       )}
+                      {/* ปุ่มปริ้น */}
+                      <button
+                        onClick={() => printReceipt(order, order.order_items || [])}
+                        title="ปริ้นใบเสร็จ"
+                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+                                   bg-coffee-50 text-coffee-700 border border-coffee-200 hover:bg-coffee-100 transition-colors"
+                      >
+                        <Printer size={14} /> ปริ้น
+                      </button>
                     </div>
                   </div>
                 )}
