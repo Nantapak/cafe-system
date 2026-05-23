@@ -1,0 +1,477 @@
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
+import { ShoppingCart, Plus, Minus, Trash2, CheckCircle, RotateCcw, X } from 'lucide-react'
+
+// ปุ่มตัวเลือกหมายเหตุ แบ่งเป็นกลุ่ม
+const NOTE_GROUPS = [
+  {
+    label: '🍬 น้ำตาล',
+    options: ['ไม่ใส่น้ำตาล', 'น้ำตาลน้อย', 'น้ำตาลมาก', 'เปลี่ยนเป็นน้ำตาลหลอด'],
+  },
+  {
+    label: '🧊 น้ำแข็ง',
+    options: ['ไม่ใส่น้ำแข็ง', 'น้ำแข็งน้อย', 'น้ำแข็งเพิ่ม'],
+  },
+  {
+    label: '✨ เพิ่มเติม',
+    options: ['เพิ่มช็อต', 'ใส่วิปครีม', 'ไม่ใส่นม', 'เปลี่ยนเป็นโอ๊ตมิลค์', 'ใส่นมข้นหวาน'],
+  },
+]
+
+const EMOJI = (catName = '') => {
+  if (catName.includes('กาแฟ')) return '☕'
+  if (catName.includes('ชา'))   return '🍵'
+  if (catName.includes('ขนม'))  return '🍰'
+  return '🥤'
+}
+
+export default function POS() {
+  const [categories, setCategories] = useState([])
+  const [products,   setProducts]   = useState([])
+  const [allSizes,   setAllSizes]   = useState([])
+  const [activeCat,  setActiveCat]  = useState(null)
+  const [cart,       setCart]       = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [success,    setSuccess]    = useState(null)
+
+  // Modal ปรับแต่ง (size + note)
+  const [customize,  setCustomize]  = useState(null)
+  // { product, sizes[], selectedSizeId, selectedNotes: string[], customNote, qty }
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    const [{ data: cats }, { data: prods }, { data: sizes }] = await Promise.all([
+      supabase.from('categories').select('*').order('sort_order'),
+      supabase.from('products').select('*, categories(name)').eq('is_available', true).order('sort_order'),
+      supabase.from('product_sizes').select('*').order('sort_order'),
+    ])
+    setCategories(cats || [])
+    setProducts(prods || [])
+    setAllSizes(sizes || [])
+    if (cats?.length) setActiveCat(cats[0].id)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  const filtered = activeCat ? products.filter(p => p.category_id === activeCat) : products
+
+  // เปิด modal ปรับแต่ง
+  const openCustomize = (product) => {
+    const sizes = allSizes.filter(s => s.product_id === product.id)
+    setCustomize({
+      product,
+      sizes,
+      selectedSizeId: sizes.length ? sizes[0].id : null,
+      selectedNotes:  [],
+      customNote:     '',
+      qty:            1,
+    })
+  }
+
+  const toggleNote = (note) =>
+    setCustomize(prev => ({
+      ...prev,
+      selectedNotes: prev.selectedNotes.includes(note)
+        ? prev.selectedNotes.filter(n => n !== note)
+        : [...prev.selectedNotes, note],
+    }))
+
+  const currentPrice = () => {
+    if (!customize) return 0
+    const { product, sizes, selectedSizeId } = customize
+    return selectedSizeId
+      ? Number(sizes.find(s => s.id === selectedSizeId)?.price ?? product.price)
+      : Number(product.price)
+  }
+
+  const confirmAdd = () => {
+    const { product, sizes, selectedSizeId, selectedNotes, customNote, qty } = customize
+    const size = sizes.find(s => s.id === selectedSizeId) || null
+    const price = size ? Number(size.price) : Number(product.price)
+    const note  = [...selectedNotes, customNote.trim()].filter(Boolean).join(', ')
+
+    setCart(prev => {
+      // รวมกับ item เดิมที่ product + size + note ตรงกัน
+      const existing = prev.find(
+        i => i.id === product.id && i.sizeId === (size?.id || null) && i.note === note
+      )
+      if (existing) {
+        return prev.map(i => i.cartKey === existing.cartKey ? { ...i, qty: i.qty + qty } : i)
+      }
+      return [...prev, {
+        cartKey:      `${Date.now()}-${Math.random()}`,
+        id:           product.id,
+        name:         product.name,
+        price,
+        qty,
+        sizeId:       size?.id   || null,
+        sizeName:     size?.name || null,
+        note,
+        categoryName: product.categories?.name || '',
+      }]
+    })
+    setCustomize(null)
+  }
+
+  const updateQty = (cartKey, delta) =>
+    setCart(prev =>
+      prev.map(i => i.cartKey === cartKey ? { ...i, qty: i.qty + delta } : i)
+          .filter(i => i.qty > 0)
+    )
+
+  const removeItem = (cartKey) => setCart(prev => prev.filter(i => i.cartKey !== cartKey))
+  const clearCart  = () => setCart([])
+
+  const total      = cart.reduce((s, i) => s + i.price * i.qty, 0)
+  const totalItems = cart.reduce((s, i) => s + i.qty, 0)
+
+  // ยืนยันออเดอร์ + ตัดสต็อก
+  const submitOrder = async () => {
+    if (!cart.length) return
+    setSubmitting(true)
+    try {
+      // 1) สร้าง order
+      const { data: order, error: oErr } = await supabase
+        .from('orders')
+        .insert({ total, status: 'pending' })
+        .select().single()
+      if (oErr) throw oErr
+
+      // 2) order_items
+      const { error: iErr } = await supabase.from('order_items').insert(
+        cart.map(i => ({
+          order_id:   order.id,
+          product_id: i.id,
+          name:       i.sizeName ? `${i.name} (${i.sizeName})` : i.name,
+          price:      i.price,
+          quantity:   i.qty,
+          note:       i.note || null,
+        }))
+      )
+      if (iErr) throw iErr
+
+      // 3) ตัดสต็อก
+      const productIds = [...new Set(cart.map(i => i.id))]
+      const { data: ingRows } = await supabase
+        .from('product_ingredients')
+        .select('product_id, inventory_id, quantity, size_id')
+        .in('product_id', productIds)
+
+      if (ingRows?.length) {
+        const deductMap = {}
+        for (const item of cart) {
+          // ใช้ ingredients แบบ size-specific ก่อน ถ้าไม่มี fallback ไป general (size_id=null)
+          let ings = ingRows.filter(r => r.product_id === item.id && r.size_id === item.sizeId)
+          if (!ings.length) {
+            ings = ingRows.filter(r => r.product_id === item.id && !r.size_id)
+          }
+          // general ingredients (ถ้วย, หลอด) ใช้เสมอ
+          const general = ingRows.filter(r => r.product_id === item.id && !r.size_id)
+          const combined = item.sizeId ? [...ings, ...general] : general
+          // ถ้าไม่มี size ใช้ ings ปกติ (ที่ไม่มี size_id)
+          const toDeduct = item.sizeId ? ings.concat(general.filter(g => !ings.find(x => x.inventory_id === g.inventory_id))) : ings
+          for (const ing of toDeduct) {
+            const d = Number(ing.quantity) * item.qty
+            deductMap[ing.inventory_id] = (deductMap[ing.inventory_id] || 0) + d
+          }
+        }
+
+        const invIds = Object.keys(deductMap)
+        if (invIds.length) {
+          const { data: invRows } = await supabase
+            .from('inventory').select('id, quantity').in('id', invIds)
+          await Promise.all([
+            ...invRows.map(inv =>
+              supabase.from('inventory')
+                .update({ quantity: Math.max(0, Number(inv.quantity) - deductMap[inv.id]) })
+                .eq('id', inv.id)
+            ),
+            supabase.from('inventory_transactions').insert(
+              invRows.map(inv => ({
+                inventory_id: inv.id,
+                type:         'out',
+                quantity:     deductMap[inv.id],
+                note:         `ออเดอร์ #${order.order_number}`,
+              }))
+            ),
+          ])
+        }
+      }
+
+      setSuccess(`ออเดอร์ #${order.order_number} สำเร็จ! ยอด ฿${total.toLocaleString()}`)
+      clearCart()
+    } catch (e) {
+      alert('เกิดข้อผิดพลาด: ' + e.message)
+    } finally {
+      setSubmitting(false)
+      setTimeout(() => setSuccess(null), 4000)
+    }
+  }
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64 text-coffee-600 text-lg">กำลังโหลด... ☕</div>
+  )
+
+  return (
+    <div className="flex gap-5 h-[calc(100vh-3rem)]">
+
+      {/* ---- เมนู ---- */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <h1 className="text-xl font-bold text-gray-800 mb-4">POS / แคชเชียร์</h1>
+
+        {/* หมวดหมู่ */}
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+          <button onClick={() => setActiveCat(null)}
+            className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors
+              ${!activeCat ? 'bg-coffee-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >ทั้งหมด</button>
+          {categories.map(c => (
+            <button key={c.id} onClick={() => setActiveCat(c.id)}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors
+                ${activeCat === c.id ? 'bg-coffee-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            >{c.name}</button>
+          ))}
+        </div>
+
+        {/* กริดสินค้า */}
+        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 content-start">
+          {filtered.map(p => {
+            const sizes   = allSizes.filter(s => s.product_id === p.id)
+            const cartQty = cart.filter(i => i.id === p.id).reduce((s, i) => s + i.qty, 0)
+            return (
+              <button key={p.id} onClick={() => openCustomize(p)}
+                className="card p-4 text-left hover:shadow-md hover:border-coffee-300 transition-all active:scale-95"
+              >
+                <div className="text-3xl mb-2">{EMOJI(p.categories?.name)}</div>
+                <p className="font-semibold text-gray-800 text-sm leading-tight">{p.name}</p>
+
+                {/* แสดง size+ราคา หรือราคาเดียว */}
+                {sizes.length > 0 ? (
+                  <div className="flex gap-1 mt-1.5 flex-wrap">
+                    {sizes.map(s => (
+                      <span key={s.id} className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-md font-medium">
+                        {s.name} ฿{Number(s.price).toLocaleString()}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-coffee-600 font-bold mt-1">฿{Number(p.price).toLocaleString()}</p>
+                )}
+
+                {cartQty > 0 && (
+                  <div className="mt-2">
+                    <span className="text-xs bg-coffee-100 text-coffee-700 px-2 py-0.5 rounded-full font-medium">
+                      x{cartQty} ในตะกร้า
+                    </span>
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ---- ตะกร้า ---- */}
+      <div className="w-80 flex flex-col shrink-0">
+        <div className="card flex-1 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingCart size={18} className="text-coffee-600" />
+              <span className="font-bold text-gray-800">ตะกร้า</span>
+              {totalItems > 0 && (
+                <span className="bg-coffee-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {totalItems}
+                </span>
+              )}
+            </div>
+            {cart.length > 0 && (
+              <button onClick={clearCart} className="text-gray-400 hover:text-red-500 transition-colors">
+                <RotateCcw size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* รายการ */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {cart.length === 0 ? (
+              <div className="text-center text-gray-400 mt-12">
+                <ShoppingCart size={40} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">ยังไม่มีสินค้าในตะกร้า</p>
+              </div>
+            ) : cart.map(item => (
+              <div key={item.cartKey} className="bg-gray-50 rounded-lg p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-medium text-gray-800">{item.name}</p>
+                      {item.sizeName && (
+                        <span className="text-xs bg-coffee-100 text-coffee-600 px-1.5 py-0.5 rounded font-semibold">
+                          {item.sizeName}
+                        </span>
+                      )}
+                    </div>
+                    {item.note && (
+                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.note}</p>
+                    )}
+                    <p className="text-coffee-600 text-sm font-bold mt-0.5">
+                      ฿{(item.price * item.qty).toLocaleString()}
+                    </p>
+                  </div>
+                  <button onClick={() => removeItem(item.cartKey)} className="text-gray-300 hover:text-red-400 shrink-0 mt-0.5">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <button onClick={() => updateQty(item.cartKey, -1)}
+                    className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
+                    <Minus size={12} />
+                  </button>
+                  <span className="text-sm font-bold w-6 text-center">{item.qty}</span>
+                  <button onClick={() => updateQty(item.cartKey, 1)}
+                    className="w-7 h-7 rounded-full bg-coffee-600 text-white flex items-center justify-center hover:bg-coffee-700">
+                    <Plus size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div className="px-4 py-3 border-t border-gray-100 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 font-medium">รวมทั้งหมด</span>
+              <span className="text-xl font-bold text-coffee-700">฿{total.toLocaleString()}</span>
+            </div>
+            <button onClick={submitOrder} disabled={!cart.length || submitting}
+              className="btn-primary w-full text-base py-3 flex items-center justify-center gap-2">
+              <CheckCircle size={18} />
+              {submitting ? 'กำลังบันทึก...' : 'ยืนยันออเดอร์'}
+            </button>
+          </div>
+        </div>
+
+        {success && (
+          <div className="mt-3 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm font-medium text-center">
+            ✅ {success}
+          </div>
+        )}
+      </div>
+
+      {/* ===== Customize Modal ===== */}
+      {customize && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50">
+          <div className="bg-white w-full sm:rounded-2xl sm:max-w-md shadow-2xl max-h-[92vh] flex flex-col rounded-t-2xl">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{EMOJI(customize.product.categories?.name)}</span>
+                <div>
+                  <h2 className="font-bold text-gray-800 text-lg leading-tight">{customize.product.name}</h2>
+                  <p className="text-coffee-600 font-semibold text-sm">
+                    ฿{(currentPrice() * customize.qty).toLocaleString()}
+                    {customize.qty > 1 && (
+                      <span className="text-gray-400 font-normal"> (฿{currentPrice().toLocaleString()} × {customize.qty})</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setCustomize(null)} className="p-1 rounded-full hover:bg-gray-100">
+                <X size={22} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+              {/* ---- Size ---- */}
+              {customize.sizes.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">⚖️ ขนาด</p>
+                  <div className="flex gap-2">
+                    {customize.sizes.map(s => (
+                      <button key={s.id}
+                        onClick={() => setCustomize(c => ({ ...c, selectedSizeId: s.id }))}
+                        className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition-all
+                          ${customize.selectedSizeId === s.id
+                            ? 'border-coffee-600 bg-coffee-600 text-white shadow-sm'
+                            : 'border-gray-200 text-gray-600 hover:border-coffee-300 bg-white'}`}
+                      >
+                        <div className="text-base font-bold">{s.name}</div>
+                        <div className={`text-xs mt-0.5 ${customize.selectedSizeId === s.id ? 'text-coffee-100' : 'text-coffee-500'}`}>
+                          ฿{Number(s.price).toLocaleString()}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ---- Note options ---- */}
+              {NOTE_GROUPS.map(group => (
+                <div key={group.label}>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">{group.label}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.options.map(opt => (
+                      <button key={opt} onClick={() => toggleNote(opt)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all
+                          ${customize.selectedNotes.includes(opt)
+                            ? 'bg-coffee-600 border-coffee-600 text-white shadow-sm'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-coffee-300'}`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* ---- หมายเหตุเพิ่มเติม ---- */}
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">📝 พิมพ์เพิ่มเติม</p>
+                <input
+                  className="input text-sm"
+                  placeholder="เช่น ไม่ใส่น้ำมะนาว, เพิ่มมินต์..."
+                  value={customize.customNote}
+                  onChange={e => setCustomize(c => ({ ...c, customNote: e.target.value }))}
+                />
+                {customize.selectedNotes.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    รวม: {[...customize.selectedNotes, customize.customNote].filter(Boolean).join(', ')}
+                  </p>
+                )}
+              </div>
+
+              {/* ---- จำนวน ---- */}
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">🔢 จำนวน</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setCustomize(c => ({ ...c, qty: Math.max(1, c.qty - 1) }))}
+                    className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 text-gray-600 font-bold"
+                  ><Minus size={16} /></button>
+                  <span className="text-2xl font-bold w-8 text-center">{customize.qty}</span>
+                  <button
+                    onClick={() => setCustomize(c => ({ ...c, qty: c.qty + 1 }))}
+                    className="w-10 h-10 rounded-full bg-coffee-600 text-white flex items-center justify-center hover:bg-coffee-700 font-bold"
+                  ><Plus size={16} /></button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-gray-100">
+              <button onClick={confirmAdd}
+                className="btn-primary w-full py-3.5 text-base flex items-center justify-center gap-2 rounded-xl">
+                <ShoppingCart size={18} />
+                เพิ่มลงตะกร้า · ฿{(currentPrice() * customize.qty).toLocaleString()}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

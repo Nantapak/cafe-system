@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 font-sans;
+    font-family: 'Sarabun', 'Noto Sans Thai', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-coffee-600 hover:bg-coffee-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors duration-150;
+  }
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-150;
+  }
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100;
+  }
+  .input {
+    @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-coffee-400 focus:border-transparent;
+  }
+  .badge-pending    { @apply bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full; }
+  .badge-preparing  { @apply bg-blue-100   text-blue-700   text-xs font-medium px-2 py-0.5 rounded-full; }
+  .badge-ready      { @apply bg-green-100  text-green-700  text-xs font-medium px-2 py-0.5 rounded-full; }
+  .badge-completed  { @apply bg-gray-100   text-gray-600   text-xs font-medium px-2 py-0.5 rounded-full; }
+  .badge-cancelled  { @apply bg-red-100    text-red-600    text-xs font-medium px-2 py-0.5 rounded-full; }
+}
