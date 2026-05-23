@@ -26,13 +26,15 @@ function fmtMoney(n) {
    ใบเสร็จ + คิว รวมแผ่นเดียว
 ═══════════════════════════════════════════════════ */
 export function printReceipt(order, items) {
+  const isCancelled = order.status === 'cancelled'
   const rows = items.map(item => {
     const sizePart = item.size_name ? ` (${item.size_name})` : ''
     const notePart = item.note
       ? `<div class="note">↳ ${item.note}</div>`
       : ''
+    const lineStyle = isCancelled ? ' style="text-decoration:line-through;color:#999;"' : ''
     return `
-      <div class="row">
+      <div class="row"${lineStyle}>
         <span class="item-name">${item.name}${sizePart} ×${item.quantity}</span>
         <span class="item-price">฿${fmtMoney(item.price * item.quantity)}</span>
       </div>
@@ -93,11 +95,25 @@ export function printReceipt(order, items) {
       font-weight: 700;
     }
 
+    /* ── ยกเลิก ── */
+    .cancelled-banner {
+      text-align: center;
+      background: #000;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      padding: 4px 0;
+      margin-bottom: 4px;
+    }
+
     /* ── ท้าย ── */
     .footer { font-size: 11px; color: #999; margin-top: 5px; }
   </style>
 </head>
 <body>
+
+  ${order.status === 'cancelled' ? `<div class="cancelled-banner">⚠ ยกเลิกออเดอร์แล้ว</div>` : ''}
 
   <!-- คิว -->
   <div class="queue-wrap">

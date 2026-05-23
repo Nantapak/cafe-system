@@ -202,7 +202,7 @@ export default function POS() {
         }
       }
 
-      // บันทึกออเดอร์ล่าสุดไว้สำหรับปริ้น
+      // ปริ้นอัตโนมัติทันทีหลังยืนยัน
       const printItems = cart.map(i => ({
         name:      i.name,
         size_name: i.sizeName || null,
@@ -211,6 +211,7 @@ export default function POS() {
         price:     i.price,
       }))
       setLastOrder({ order, items: printItems })
+      printReceipt(order, printItems)
 
       setSuccess(`ออเดอร์ #${order.order_number} สำเร็จ! ยอด ฿${total.toLocaleString()}`)
       clearCart()
