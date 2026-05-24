@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Pencil, Trash2, X, Check, ToggleLeft, ToggleRight, FlaskConical, Layers, TrendingUp } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, ToggleLeft, ToggleRight, FlaskConical, Layers } from 'lucide-react'
 
 const EMPTY_FORM = { name: '', description: '', price: '', category_id: '', is_available: true, image_url: '' }
 
@@ -232,19 +232,6 @@ export default function MenuAdmin() {
                         <FlaskConical size={10} />
                         {ingCounts[p.id] ? `${ingCounts[p.id]} ส่วนผสม` : 'ตั้งส่วนผสม'}
                       </button>
-                      {/* ต้นทุน/กำไร badge */}
-                      {costMap[p.id] > 0 && (() => {
-                        const cost   = costMap[p.id]
-                        const price  = Number(p.price)
-                        const profit = price > 0 ? Math.round(((price - cost) / price) * 100) : null
-                        return (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700">
-                            <TrendingUp size={10} />
-                            ต้นทุน ฿{cost.toFixed(0)}
-                            {profit !== null && <span className="text-green-600 ml-0.5">· กำไร {profit}%</span>}
-                          </span>
-                        )
-                      })()}
                     </div>
                   </div>
 
@@ -280,7 +267,6 @@ export default function MenuAdmin() {
                   <th className="text-right px-4 py-3 text-gray-600 font-semibold">ราคาเริ่มต้น</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-semibold">Size</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-semibold hidden lg:table-cell">ส่วนผสม</th>
-                  <th className="text-right px-4 py-3 text-gray-600 font-semibold hidden xl:table-cell">ต้นทุน / กำไร</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-semibold">สถานะ</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-semibold">จัดการ</th>
                 </tr>
@@ -309,27 +295,6 @@ export default function MenuAdmin() {
                         <FlaskConical size={12} />
                         {ingCounts[p.id] ? `${ingCounts[p.id]} รายการ` : 'ตั้งค่า'}
                       </button>
-                    </td>
-                    <td className="px-4 py-3 text-right hidden xl:table-cell">
-                      {costMap[p.id] > 0 ? (() => {
-                        const cost   = costMap[p.id]
-                        const price  = Number(p.price)
-                        const profit = price > 0 ? (price - cost) : null
-                        const pct    = price > 0 ? Math.round(((price - cost) / price) * 100) : null
-                        return (
-                          <div className="text-xs">
-                            <p className="text-amber-700 font-semibold">ต้นทุน ฿{cost.toFixed(2)}</p>
-                            {profit !== null && (
-                              <p className={`font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                กำไร ฿{profit.toFixed(2)}
-                                <span className="font-normal ml-1 opacity-80">({pct}%)</span>
-                              </p>
-                            )}
-                          </div>
-                        )
-                      })() : (
-                        <span className="text-xs text-gray-300">—</span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button onClick={() => toggleAvailable(p)} className="inline-flex items-center gap-1 text-xs">
