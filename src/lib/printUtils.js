@@ -4,6 +4,8 @@
  * รองรับเครื่องปริ้น Thermal 80mm
  */
 
+import { generatePromptPayPayload, generateQRImageURL, PROMPTPAY_ID } from './promptpay.js'
+
 const SHOP_NAME    = import.meta.env.VITE_SHOP_NAME    || 'ร้านกาแฟ'
 const SHOP_TAGLINE = import.meta.env.VITE_SHOP_TAGLINE || 'Cafe Management'
 const SHOP_EMOJI   = import.meta.env.VITE_SHOP_EMOJI   || '☕'
@@ -26,7 +28,24 @@ function fmtMoney(n) {
    ใบเสร็จ + คิว รวมแผ่นเดียว
 ═══════════════════════════════════════════════════ */
 export function printReceipt(order, items) {
-  const isCancelled = order.status === 'cancelled'
+  const isCancelled  = order.status === 'cancelled'
+
+  /* ── สร้าง QR PromptPay (ถ้ามี VITE_PROMPTPAY_ID) ── */
+  let qrBlock = ''
+  if (PROMPTPAY_ID && !isCancelled) {
+    try {
+      const payload = generatePromptPayPayload(PROMPTPAY_ID, Number(order.total))
+      const qrUrl   = generateQRImageURL(payload, 200)
+      qrBlock = `
+        <hr class="divider" />
+        <div class="qr-wrap">
+          <div class="qr-label">สแกน PromptPay เพื่อชำระเงิน</div>
+          <img class="qr-img" src="${qrUrl}" alt="QR PromptPay" />
+          <div class="qr-amt">฿${fmtMoney(order.total)}</div>
+        </div>
+      `
+    } catch (_) { /* ถ้าสร้าง QR ไม่ได้ก็ข้ามไป */ }
+  }
   const rows = items.map(item => {
     const sizePart = item.size_name ? ` (${item.size_name})` : ''
     const notePart = item.note
@@ -107,6 +126,12 @@ export function printReceipt(order, items) {
       margin-bottom: 4px;
     }
 
+    /* ── QR PromptPay ── */
+    .qr-wrap  { text-align: center; margin: 6px 0 4px; }
+    .qr-img   { width: 140px; height: 140px; }
+    .qr-label { font-size: 11px; color: #555; margin-top: 2px; }
+    .qr-amt   { font-size: 15px; font-weight: 700; margin-top: 2px; }
+
     /* ── ท้าย ── */
     .footer { font-size: 11px; color: #999; margin-top: 5px; }
   </style>
@@ -142,6 +167,9 @@ export function printReceipt(order, items) {
     <span>รวมทั้งหมด</span>
     <span>฿${fmtMoney(order.total)}</span>
   </div>
+
+  <!-- QR PromptPay -->
+  ${qrBlock}
 
   <hr class="divider" />
 

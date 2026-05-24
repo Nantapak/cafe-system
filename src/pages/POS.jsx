@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { printReceipt } from '../lib/printUtils'
+import { generatePromptPayPayload, generateQRImageURL, PROMPTPAY_ID } from '../lib/promptpay'
 import { useAuth } from '../contexts/AuthContext'
 import {
   ShoppingCart, Plus, Minus, Trash2,
@@ -300,22 +301,54 @@ export default function POS() {
     </div>
   )
 
-  const SuccessBanner = () => success ? (
-    <div className="mt-3 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">
-      <p className="font-medium text-center mb-2">✅ {success}</p>
-      {lastOrder && (
-        <div className="flex justify-center">
-          <button
-            onClick={() => printReceipt(lastOrder.order, lastOrder.items)}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium
-                       bg-coffee-100 text-coffee-800 border border-coffee-300 hover:bg-coffee-200 transition-colors"
-          >
-            <Printer size={13} /> ปริ้นใบเสร็จ
-          </button>
-        </div>
-      )}
-    </div>
-  ) : null
+  const SuccessBanner = () => {
+    if (!success) return null
+
+    /* สร้าง QR URL สำหรับแสดงหน้าจอ (ถ้า PROMPTPAY_ID ตั้งค่าไว้) */
+    let qrImgUrl = null
+    if (lastOrder && PROMPTPAY_ID) {
+      try {
+        const payload = generatePromptPayPayload(PROMPTPAY_ID, Number(lastOrder.order.total))
+        qrImgUrl = generateQRImageURL(payload, 220)
+      } catch (_) { /* ข้ามถ้าสร้างไม่ได้ */ }
+    }
+
+    return (
+      <div className="mt-3 bg-green-50 border border-green-200 rounded-xl p-3 text-sm">
+        <p className="font-medium text-center text-green-700 mb-3">✅ {success}</p>
+
+        {/* QR PromptPay */}
+        {qrImgUrl && lastOrder && (
+          <div className="flex flex-col items-center mb-3">
+            <p className="text-xs text-gray-500 mb-1.5">สแกน PromptPay เพื่อชำระเงิน</p>
+            <div className="bg-white rounded-xl p-2 shadow-sm border border-gray-100">
+              <img
+                src={qrImgUrl}
+                alt="QR PromptPay"
+                className="w-40 h-40 block"
+              />
+            </div>
+            <p className="mt-2 text-xl font-bold text-gray-800">
+              ฿{Number(lastOrder.order.total).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        )}
+
+        {/* ปุ่มปริ้น */}
+        {lastOrder && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => printReceipt(lastOrder.order, lastOrder.items)}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium
+                         bg-coffee-100 text-coffee-800 border border-coffee-300 hover:bg-coffee-200 transition-colors"
+            >
+              <Printer size={13} /> ปริ้นใบเสร็จ
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="flex gap-5 h-[calc(100vh-4rem)] md:h-[calc(100vh-3rem)]">
