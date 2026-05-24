@@ -1,18 +1,20 @@
+import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, ShoppingCart, ClipboardList,
   Coffee, Package, Users, LogOut, BarChart2,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 
 const ALL_NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'แดชบอร์ด',       roles: ['admin'] },
   { to: '/pos',       icon: ShoppingCart,    label: 'POS / แคชเชียร์', roles: ['admin', 'cashier'] },
   { to: '/orders',    icon: ClipboardList,   label: 'ออเดอร์',          roles: ['admin', 'cashier', 'barista'] },
   { to: '/menu',      icon: Coffee,          label: 'จัดการเมนู',       roles: ['admin'] },
-  { to: '/inventory', icon: Package,         label: 'สต็อกวัตถุดิบ',    roles: ['admin'] },
+  { to: '/inventory', icon: Package,         label: 'สต็อกวัตถุดิบ',    roles: ['admin'], lowStock: true },
   { to: '/staff',     icon: Users,           label: 'จัดการพนักงาน',    roles: ['admin'] },
-  { to: '/reports',  icon: BarChart2,       label: 'รายงานยอดขาย',     roles: ['admin'] },
+  { to: '/reports',   icon: BarChart2,       label: 'รายงานยอดขาย',     roles: ['admin'] },
 ]
 
 const ROLE_LABELS = {
@@ -28,11 +30,36 @@ export default function Sidebar() {
   const displayName = user?.user_metadata?.name || user?.user_metadata?.username || '-'
   const username    = user?.user_metadata?.username || user?.email?.replace('@cafe.local', '')
 
+  /* ── Low stock count ── */
+  const [lowStockCount, setLowStockCount] = useState(0)
+
+  useEffect(() => {
+    if (role !== 'admin') return   // เฉพาะ admin ถึงดู inventory
+
+    const fetchLowStock = async () => {
+      const { data } = await supabase
+        .from('inventory')
+        .select('id, quantity, min_quantity')
+      setLowStockCount(
+        (data || []).filter(i => Number(i.quantity) <= Number(i.min_quantity)).length
+      )
+    }
+
+    fetchLowStock()
+
+    // Realtime: อัปเดต badge เมื่อสต็อกเปลี่ยน
+    const ch = supabase.channel('sidebar-inventory')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, fetchLowStock)
+      .subscribe()
+
+    return () => supabase.removeChannel(ch)
+  }, [role])
+
   return (
     <aside className="hidden md:flex flex-col bg-coffee-800 text-white shadow-xl shrink-0 w-16 lg:w-60 transition-[width] duration-200">
       <div className="flex items-center gap-3 px-3 lg:px-5 py-5 border-b border-coffee-700 min-h-[72px]">
         <span className="text-2xl shrink-0">
-          {import.meta.env.VITE_SHOP_EMOJI || 'coffee'}
+          {import.meta.env.VITE_SHOP_EMOJI || '☕'}
         </span>
         <div className="hidden lg:block overflow-hidden">
           <p className="font-bold text-base leading-tight truncate">
@@ -45,7 +72,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 py-4 px-2 lg:px-3 space-y-1 overflow-y-auto">
-        {navItems.map(({ to, icon: Icon, label }) => (
+        {navItems.map(({ to, icon: Icon, label, lowStock }) => (
           <NavLink
             key={to}
             to={to}
@@ -57,8 +84,25 @@ export default function Sidebar() {
                  : 'text-coffee-200 hover:bg-coffee-700 hover:text-white'}`
             }
           >
-            <Icon size={18} className="shrink-0" />
+            <div className="relative shrink-0">
+              <Icon size={18} />
+              {/* Badge แจ้งเตือนสต็อกต่ำ */}
+              {lowStock && lowStockCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full
+                                 text-[9px] font-bold text-white flex items-center justify-center">
+                  {lowStockCount > 9 ? '9+' : lowStockCount}
+                </span>
+              )}
+            </div>
             <span className="hidden lg:block">{label}</span>
+            {/* Badge แบบ inline บน desktop */}
+            {lowStock && lowStockCount > 0 && (
+              <span className="hidden lg:flex ml-auto items-center justify-center
+                               min-w-5 h-5 bg-red-500 rounded-full
+                               text-[10px] font-bold text-white px-1">
+                {lowStockCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
