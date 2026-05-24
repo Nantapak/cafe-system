@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { printReceipt } from '../lib/printUtils'
-import { ShoppingCart, Plus, Minus, Trash2, CheckCircle, RotateCcw, X, Printer } from 'lucide-react'
+import {
+  ShoppingCart, Plus, Minus, Trash2,
+  CheckCircle, RotateCcw, X, Printer,
+} from 'lucide-react'
 
-// ปุ่มตัวเลือกหมายเหตุ แบ่งเป็นกลุ่ม
 const NOTE_GROUPS = [
   {
     label: '🍬 น้ำตาล',
@@ -35,113 +37,119 @@ export default function POS() {
   const [loading,    setLoading]    = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [success,    setSuccess]    = useState(null)
-  const [lastOrder,  setLastOrder]  = useState(null)  // { order, items } สำหรับปริ้น
-
-  // Modal ปรับแต่ง (size + note)
+  const [lastOrder,  setLastOrder]  = useState(null)
   const [customize,  setCustomize]  = useState(null)
-  // { product, sizes[], selectedSizeId, selectedNotes: string[], customNote, qty }
+  const [cartOpen,   setCartOpen]   = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     const [{ data: cats }, { data: prods }, { data: sizes }] = await Promise.all([
       supabase.from('categories').select('*').order('sort_order'),
-      supabase.from('products').select('*, categories(name)').eq('is_available', true).order('sort_order'),
+      supabase.from('products').select('*, categories(name)').eq('is_available', true).order('name'),
       supabase.from('product_sizes').select('*').order('sort_order'),
     ])
     setCategories(cats || [])
     setProducts(prods || [])
     setAllSizes(sizes || [])
-    if (cats?.length) setActiveCat(cats[0].id)
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const filtered = activeCat ? products.filter(p => p.category_id === activeCat) : products
+  const filtered = activeCat
+    ? products.filter(p => p.category_id === activeCat)
+    : products
 
-  // เปิด modal ปรับแต่ง
+  /* ── Cart operations ── */
+  const removeItem  = (cartKey) => setCart(c => c.filter(i => i.cartKey !== cartKey))
+  const clearCart   = () => setCart([])
+  const updateQty   = (cartKey, delta) =>
+    setCart(c => c.map(i =>
+      i.cartKey === cartKey
+        ? { ...i, qty: Math.max(1, i.qty + delta) }
+        : i
+    ))
+
+  const total      = cart.reduce((s, i) => s + i.price * i.qty, 0)
+  const totalItems = cart.reduce((s, i) => s + i.qty, 0)
+
+  /* ── Customize modal ── */
   const openCustomize = (product) => {
     const sizes = allSizes.filter(s => s.product_id === product.id)
     setCustomize({
       product,
       sizes,
-      selectedSizeId: sizes.length ? sizes[0].id : null,
-      selectedNotes:  [],
-      customNote:     '',
-      qty:            1,
+      selectedSizeId: sizes[0]?.id ?? null,
+      selectedNotes: [],
+      customNote: '',
+      qty: 1,
     })
   }
 
-  const toggleNote = (note) =>
-    setCustomize(prev => ({
-      ...prev,
-      selectedNotes: prev.selectedNotes.includes(note)
-        ? prev.selectedNotes.filter(n => n !== note)
-        : [...prev.selectedNotes, note],
-    }))
-
   const currentPrice = () => {
     if (!customize) return 0
-    const { product, sizes, selectedSizeId } = customize
-    return selectedSizeId
-      ? Number(sizes.find(s => s.id === selectedSizeId)?.price ?? product.price)
-      : Number(product.price)
+    if (customize.selectedSizeId) {
+      const sz = customize.sizes.find(s => s.id === customize.selectedSizeId)
+      return sz ? Number(sz.price) : Number(customize.product.price)
+    }
+    return Number(customize.product.price)
   }
 
-  const confirmAdd = () => {
-    const { product, sizes, selectedSizeId, selectedNotes, customNote, qty } = customize
-    const size = sizes.find(s => s.id === selectedSizeId) || null
-    const price = size ? Number(size.price) : Number(product.price)
-    const note  = [...selectedNotes, customNote.trim()].filter(Boolean).join(', ')
+  const toggleNote = (note) =>
+    setCustomize(c => ({
+      ...c,
+      selectedNotes: c.selectedNotes.includes(note)
+        ? c.selectedNotes.filter(n => n !== note)
+        : [...c.selectedNotes, note],
+    }))
 
+  const confirmAdd = () => {
+    if (!customize) return
+    const sz       = customize.sizes.find(s => s.id === customize.selectedSizeId)
+    const allNotes = [
+      ...customize.selectedNotes,
+      ...(customize.customNote.trim() ? [customize.customNote.trim()] : []),
+    ]
+    const note = allNotes.join(', ') || null
+
+    const newItem = {
+      cartKey:      Date.now() + Math.random(),
+      id:           customize.product.id,
+      name:         customize.product.name,
+      price:        currentPrice(),
+      qty:          customize.qty,
+      sizeId:       customize.selectedSizeId,
+      sizeName:     sz?.name ?? null,
+      note,
+      categoryName: customize.product.categories?.name ?? '',
+    }
+
+    // รวมกับ item เดิมถ้า product + size + note ตรงกัน
     setCart(prev => {
-      // รวมกับ item เดิมที่ product + size + note ตรงกัน
-      const existing = prev.find(
-        i => i.id === product.id && i.sizeId === (size?.id || null) && i.note === note
+      const idx = prev.findIndex(
+        i => i.id === newItem.id && i.sizeId === newItem.sizeId && i.note === newItem.note
       )
-      if (existing) {
-        return prev.map(i => i.cartKey === existing.cartKey ? { ...i, qty: i.qty + qty } : i)
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = { ...next[idx], qty: next[idx].qty + newItem.qty }
+        return next
       }
-      return [...prev, {
-        cartKey:      `${Date.now()}-${Math.random()}`,
-        id:           product.id,
-        name:         product.name,
-        price,
-        qty,
-        sizeId:       size?.id   || null,
-        sizeName:     size?.name || null,
-        note,
-        categoryName: product.categories?.name || '',
-      }]
+      return [...prev, newItem]
     })
     setCustomize(null)
   }
 
-  const updateQty = (cartKey, delta) =>
-    setCart(prev =>
-      prev.map(i => i.cartKey === cartKey ? { ...i, qty: i.qty + delta } : i)
-          .filter(i => i.qty > 0)
-    )
-
-  const removeItem = (cartKey) => setCart(prev => prev.filter(i => i.cartKey !== cartKey))
-  const clearCart  = () => setCart([])
-
-  const total      = cart.reduce((s, i) => s + i.price * i.qty, 0)
-  const totalItems = cart.reduce((s, i) => s + i.qty, 0)
-
-  // ยืนยันออเดอร์ + ตัดสต็อก
+  /* ── Submit order + ตัดสต็อก ── */
   const submitOrder = async () => {
     if (!cart.length) return
     setSubmitting(true)
     try {
-      // 1) สร้าง order
       const { data: order, error: oErr } = await supabase
         .from('orders')
         .insert({ total, status: 'pending' })
         .select().single()
       if (oErr) throw oErr
 
-      // 2) order_items
       const { error: iErr } = await supabase.from('order_items').insert(
         cart.map(i => ({
           order_id:   order.id,
@@ -154,7 +162,7 @@ export default function POS() {
       )
       if (iErr) throw iErr
 
-      // 3) ตัดสต็อก
+      // ตัดสต็อก
       const productIds = [...new Set(cart.map(i => i.id))]
       const { data: ingRows } = await supabase
         .from('product_ingredients')
@@ -164,19 +172,14 @@ export default function POS() {
       if (ingRows?.length) {
         const deductMap = {}
         for (const item of cart) {
-          // ใช้ ingredients แบบ size-specific ก่อน ถ้าไม่มี fallback ไป general (size_id=null)
           let ings = ingRows.filter(r => r.product_id === item.id && r.size_id === item.sizeId)
-          if (!ings.length) {
-            ings = ingRows.filter(r => r.product_id === item.id && !r.size_id)
-          }
-          // general ingredients (ถ้วย, หลอด) ใช้เสมอ
-          const general = ingRows.filter(r => r.product_id === item.id && !r.size_id)
-          const combined = item.sizeId ? [...ings, ...general] : general
-          // ถ้าไม่มี size ใช้ ings ปกติ (ที่ไม่มี size_id)
-          const toDeduct = item.sizeId ? ings.concat(general.filter(g => !ings.find(x => x.inventory_id === g.inventory_id))) : ings
+          if (!ings.length) ings = ingRows.filter(r => r.product_id === item.id && !r.size_id)
+          const general  = ingRows.filter(r => r.product_id === item.id && !r.size_id)
+          const toDeduct = item.sizeId
+            ? ings.concat(general.filter(g => !ings.find(x => x.inventory_id === g.inventory_id)))
+            : ings
           for (const ing of toDeduct) {
-            const d = Number(ing.quantity) * item.qty
-            deductMap[ing.inventory_id] = (deductMap[ing.inventory_id] || 0) + d
+            deductMap[ing.inventory_id] = (deductMap[ing.inventory_id] || 0) + Number(ing.quantity) * item.qty
           }
         }
 
@@ -202,7 +205,7 @@ export default function POS() {
         }
       }
 
-      // ปริ้นอัตโนมัติทันทีหลังยืนยัน
+      // ปริ้นอัตโนมัติ
       const printItems = cart.map(i => ({
         name:      i.name,
         size_name: i.sizeName || null,
@@ -223,19 +226,86 @@ export default function POS() {
     }
   }
 
+  const submitAndClose = async () => {
+    await submitOrder()
+    setCartOpen(false)
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-coffee-600 text-lg">กำลังโหลด... ☕</div>
   )
 
-  return (
-    <div className="flex gap-5 h-[calc(100vh-3rem)]">
+  /* ── Cart panel (shared UI) ── */
+  const CartItems = () => (
+    <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      {cart.length === 0 ? (
+        <div className="text-center text-gray-400 mt-12">
+          <ShoppingCart size={40} className="mx-auto mb-2 opacity-30" />
+          <p className="text-sm">ยังไม่มีสินค้าในตะกร้า</p>
+        </div>
+      ) : cart.map(item => (
+        <div key={item.cartKey} className="bg-gray-50 rounded-lg p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-sm font-medium text-gray-800">{item.name}</p>
+                {item.sizeName && (
+                  <span className="text-xs bg-coffee-100 text-coffee-600 px-1.5 py-0.5 rounded font-semibold">
+                    {item.sizeName}
+                  </span>
+                )}
+              </div>
+              {item.note && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.note}</p>}
+              <p className="text-coffee-600 text-sm font-bold mt-0.5">
+                ฿{(item.price * item.qty).toLocaleString()}
+              </p>
+            </div>
+            <button onClick={() => removeItem(item.cartKey)} className="text-gray-300 hover:text-red-400 shrink-0 mt-0.5">
+              <Trash2 size={14} />
+            </button>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <button onClick={() => updateQty(item.cartKey, -1)}
+              className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
+              <Minus size={12} />
+            </button>
+            <span className="text-sm font-bold w-6 text-center">{item.qty}</span>
+            <button onClick={() => updateQty(item.cartKey, 1)}
+              className="w-7 h-7 rounded-full bg-coffee-600 text-white flex items-center justify-center hover:bg-coffee-700">
+              <Plus size={12} />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 
-      {/* ---- เมนู ---- */}
+  const SuccessBanner = () => success ? (
+    <div className="mt-3 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">
+      <p className="font-medium text-center mb-2">✅ {success}</p>
+      {lastOrder && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => printReceipt(lastOrder.order, lastOrder.items)}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium
+                       bg-coffee-100 text-coffee-800 border border-coffee-300 hover:bg-coffee-200 transition-colors"
+          >
+            <Printer size={13} /> ปริ้นใบเสร็จ
+          </button>
+        </div>
+      )}
+    </div>
+  ) : null
+
+  return (
+    <div className="flex gap-5 h-[calc(100vh-4rem)] md:h-[calc(100vh-3rem)]">
+
+      {/* ════════════ เมนู ════════════ */}
       <div className="flex-1 flex flex-col min-w-0">
         <h1 className="text-xl font-bold text-gray-800 mb-4">POS / แคชเชียร์</h1>
 
         {/* หมวดหมู่ */}
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1 shrink-0">
           <button onClick={() => setActiveCat(null)}
             className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors
               ${!activeCat ? 'bg-coffee-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
@@ -249,7 +319,7 @@ export default function POS() {
         </div>
 
         {/* กริดสินค้า */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 content-start">
+        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 content-start pb-24 md:pb-0">
           {filtered.map(p => {
             const sizes   = allSizes.filter(s => s.product_id === p.id)
             const cartQty = cart.filter(i => i.id === p.id).reduce((s, i) => s + i.qty, 0)
@@ -259,8 +329,6 @@ export default function POS() {
               >
                 <div className="text-3xl mb-2">{EMOJI(p.categories?.name)}</div>
                 <p className="font-semibold text-gray-800 text-sm leading-tight">{p.name}</p>
-
-                {/* แสดง size+ราคา หรือราคาเดียว */}
                 {sizes.length > 0 ? (
                   <div className="flex gap-1 mt-1.5 flex-wrap">
                     {sizes.map(s => (
@@ -272,7 +340,6 @@ export default function POS() {
                 ) : (
                   <p className="text-coffee-600 font-bold mt-1">฿{Number(p.price).toLocaleString()}</p>
                 )}
-
                 {cartQty > 0 && (
                   <div className="mt-2">
                     <span className="text-xs bg-coffee-100 text-coffee-700 px-2 py-0.5 rounded-full font-medium">
@@ -286,10 +353,9 @@ export default function POS() {
         </div>
       </div>
 
-      {/* ---- ตะกร้า ---- */}
-      <div className="w-80 flex flex-col shrink-0">
+      {/* ════════════ ตะกร้า — desktop/tablet ════════════ */}
+      <div className="hidden md:flex w-80 flex-col shrink-0">
         <div className="card flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShoppingCart size={18} className="text-coffee-600" />
@@ -307,89 +373,95 @@ export default function POS() {
             )}
           </div>
 
-          {/* รายการ */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {cart.length === 0 ? (
-              <div className="text-center text-gray-400 mt-12">
-                <ShoppingCart size={40} className="mx-auto mb-2 opacity-30" />
-                <p className="text-sm">ยังไม่มีสินค้าในตะกร้า</p>
-              </div>
-            ) : cart.map(item => (
-              <div key={item.cartKey} className="bg-gray-50 rounded-lg p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="text-sm font-medium text-gray-800">{item.name}</p>
-                      {item.sizeName && (
-                        <span className="text-xs bg-coffee-100 text-coffee-600 px-1.5 py-0.5 rounded font-semibold">
-                          {item.sizeName}
-                        </span>
-                      )}
-                    </div>
-                    {item.note && (
-                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.note}</p>
-                    )}
-                    <p className="text-coffee-600 text-sm font-bold mt-0.5">
-                      ฿{(item.price * item.qty).toLocaleString()}
-                    </p>
-                  </div>
-                  <button onClick={() => removeItem(item.cartKey)} className="text-gray-300 hover:text-red-400 shrink-0 mt-0.5">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <button onClick={() => updateQty(item.cartKey, -1)}
-                    className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
-                    <Minus size={12} />
-                  </button>
-                  <span className="text-sm font-bold w-6 text-center">{item.qty}</span>
-                  <button onClick={() => updateQty(item.cartKey, 1)}
-                    className="w-7 h-7 rounded-full bg-coffee-600 text-white flex items-center justify-center hover:bg-coffee-700">
-                    <Plus size={12} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <CartItems />
 
-          {/* Footer */}
           <div className="px-4 py-3 border-t border-gray-100 space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-gray-600 font-medium">รวมทั้งหมด</span>
               <span className="text-xl font-bold text-coffee-700">฿{total.toLocaleString()}</span>
             </div>
             <button onClick={submitOrder} disabled={!cart.length || submitting}
-              className="btn-primary w-full text-base py-3 flex items-center justify-center gap-2">
+              className="btn-primary w-full text-base py-3 flex items-center justify-center gap-2 disabled:opacity-50">
               <CheckCircle size={18} />
               {submitting ? 'กำลังบันทึก...' : 'ยืนยันออเดอร์'}
             </button>
           </div>
         </div>
-
-        {success && (
-          <div className="mt-3 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">
-            <p className="font-medium text-center mb-2">✅ {success}</p>
-            {lastOrder && (
-              <div className="flex justify-center">
-                <button
-                  onClick={() => printReceipt(lastOrder.order, lastOrder.items)}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium
-                             bg-coffee-100 text-coffee-800 border border-coffee-300 hover:bg-coffee-200 transition-colors"
-                >
-                  <Printer size={13} /> ปริ้นใบเสร็จ
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <SuccessBanner />
       </div>
 
-      {/* ===== Customize Modal ===== */}
+      {/* ════════════ ปุ่มตะกร้าลอย — มือถือ ════════════ */}
+      {cart.length > 0 && !cartOpen && (
+        <button
+          onClick={() => setCartOpen(true)}
+          className="md:hidden fixed bottom-20 right-4 z-30 bg-coffee-600 text-white
+                     rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3
+                     active:scale-95 transition-transform"
+        >
+          <ShoppingCart size={20} />
+          <div className="text-left">
+            <p className="text-xs opacity-80 leading-none">{totalItems} รายการ</p>
+            <p className="font-bold text-base leading-tight">฿{total.toLocaleString()}</p>
+          </div>
+          <div className="bg-white/20 rounded-lg px-2 py-1 text-xs font-semibold">ดูตะกร้า</div>
+        </button>
+      )}
+
+      {/* ════════════ Cart Bottom Sheet — มือถือ ════════════ */}
+      {cartOpen && (
+        <div className="md:hidden fixed inset-0 z-40 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setCartOpen(false)} />
+          <div className="relative bg-white rounded-t-2xl shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={18} className="text-coffee-600" />
+                <span className="font-bold text-gray-800">ตะกร้า</span>
+                <span className="bg-coffee-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {totalItems}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {cart.length > 0 && (
+                  <button onClick={clearCart} className="text-gray-400 hover:text-red-500 p-1">
+                    <RotateCcw size={16} />
+                  </button>
+                )}
+                <button onClick={() => setCartOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <CartItems />
+
+            <div className="px-4 py-4 border-t border-gray-100 space-y-3 bg-white"
+                 style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 font-medium">รวมทั้งหมด</span>
+                <span className="text-2xl font-bold text-coffee-700">฿{total.toLocaleString()}</span>
+              </div>
+              <button
+                onClick={submitAndClose}
+                disabled={!cart.length || submitting}
+                className="btn-primary w-full py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <CheckCircle size={18} />
+                {submitting ? 'กำลังบันทึก...' : 'ยืนยันออเดอร์'}
+              </button>
+              <SuccessBanner />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════ Customize Modal ════════════ */}
       {customize && (
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50">
           <div className="bg-white w-full sm:rounded-2xl sm:max-w-md shadow-2xl max-h-[92vh] flex flex-col rounded-t-2xl">
 
-            {/* Header */}
             <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <span className="text-3xl">{EMOJI(customize.product.categories?.name)}</span>
@@ -410,40 +482,41 @@ export default function POS() {
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
-              {/* ---- Size ---- */}
+              {/* Size */}
               {customize.sizes.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">⚖️ ขนาด</p>
-                  <div className="flex gap-2">
-                    {customize.sizes.map(s => (
-                      <button key={s.id}
-                        onClick={() => setCustomize(c => ({ ...c, selectedSizeId: s.id }))}
-                        className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition-all
-                          ${customize.selectedSizeId === s.id
-                            ? 'border-coffee-600 bg-coffee-600 text-white shadow-sm'
-                            : 'border-gray-200 text-gray-600 hover:border-coffee-300 bg-white'}`}
+                  <p className="text-sm font-semibold text-gray-700 mb-2">ขนาด</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {customize.sizes.map(sz => (
+                      <button
+                        key={sz.id}
+                        onClick={() => setCustomize(c => ({ ...c, selectedSizeId: sz.id }))}
+                        className={`px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all
+                          ${customize.selectedSizeId === sz.id
+                            ? 'border-coffee-600 bg-coffee-50 text-coffee-700'
+                            : 'border-gray-200 text-gray-600 hover:border-coffee-300'}`}
                       >
-                        <div className="text-base font-bold">{s.name}</div>
-                        <div className={`text-xs mt-0.5 ${customize.selectedSizeId === s.id ? 'text-coffee-100' : 'text-coffee-500'}`}>
-                          ฿{Number(s.price).toLocaleString()}
-                        </div>
+                        {sz.name}
+                        <span className="ml-1 text-xs opacity-70">฿{Number(sz.price).toLocaleString()}</span>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* ---- Note options ---- */}
+              {/* Notes */}
               {NOTE_GROUPS.map(group => (
                 <div key={group.label}>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">{group.label}</p>
+                  <p className="text-sm font-semibold text-gray-700 mb-2">{group.label}</p>
                   <div className="flex flex-wrap gap-2">
                     {group.options.map(opt => (
-                      <button key={opt} onClick={() => toggleNote(opt)}
-                        className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all
+                      <button
+                        key={opt}
+                        onClick={() => toggleNote(opt)}
+                        className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all
                           ${customize.selectedNotes.includes(opt)
-                            ? 'bg-coffee-600 border-coffee-600 text-white shadow-sm'
-                            : 'bg-white border-gray-200 text-gray-600 hover:border-coffee-300'}`}
+                            ? 'bg-coffee-600 border-coffee-600 text-white'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-coffee-400'}`}
                       >
                         {opt}
                       </button>
@@ -452,45 +525,42 @@ export default function POS() {
                 </div>
               ))}
 
-              {/* ---- หมายเหตุเพิ่มเติม ---- */}
+              {/* หมายเหตุเพิ่มเติม */}
               <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">📝 พิมพ์เพิ่มเติม</p>
+                <p className="text-sm font-semibold text-gray-700 mb-2">หมายเหตุเพิ่มเติม</p>
                 <input
-                  className="input text-sm"
-                  placeholder="เช่น ไม่ใส่น้ำมะนาว, เพิ่มมินต์..."
+                  type="text"
                   value={customize.customNote}
                   onChange={e => setCustomize(c => ({ ...c, customNote: e.target.value }))}
+                  placeholder="เช่น ไม่ใส่น้ำแข็ง, หวานน้อยมาก..."
+                  className="input w-full text-sm"
                 />
-                {customize.selectedNotes.length > 0 && (
-                  <p className="text-xs text-gray-400 mt-1.5">
-                    รวม: {[...customize.selectedNotes, customize.customNote].filter(Boolean).join(', ')}
-                  </p>
-                )}
               </div>
 
-              {/* ---- จำนวน ---- */}
+              {/* จำนวน */}
               <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2.5">🔢 จำนวน</p>
+                <p className="text-sm font-semibold text-gray-700 mb-2">จำนวน</p>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setCustomize(c => ({ ...c, qty: Math.max(1, c.qty - 1) }))}
-                    className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 text-gray-600 font-bold"
-                  ><Minus size={16} /></button>
-                  <span className="text-2xl font-bold w-8 text-center">{customize.qty}</span>
+                    className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span className="text-xl font-bold w-8 text-center">{customize.qty}</span>
                   <button
                     onClick={() => setCustomize(c => ({ ...c, qty: c.qty + 1 }))}
-                    className="w-10 h-10 rounded-full bg-coffee-600 text-white flex items-center justify-center hover:bg-coffee-700 font-bold"
-                  ><Plus size={16} /></button>
+                    className="w-9 h-9 rounded-full bg-coffee-600 text-white flex items-center justify-center hover:bg-coffee-700"
+                  >
+                    <Plus size={16} />
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-5 py-4 border-t border-gray-100">
-              <button onClick={confirmAdd}
-                className="btn-primary w-full py-3.5 text-base flex items-center justify-center gap-2 rounded-xl">
-                <ShoppingCart size={18} />
-                เพิ่มลงตะกร้า · ฿{(currentPrice() * customize.qty).toLocaleString()}
+              <button onClick={confirmAdd} className="btn-primary w-full py-3 text-base flex items-center justify-center gap-2">
+                <Plus size={18} /> เพิ่มลงตะกร้า
               </button>
             </div>
           </div>
