@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { printReceipt } from '../lib/printUtils'
+import { useAuth } from '../contexts/AuthContext'
 import {
   ShoppingCart, Plus, Minus, Trash2,
   CheckCircle, RotateCcw, X, Printer,
@@ -29,6 +30,7 @@ const EMOJI = (catName = '') => {
 }
 
 export default function POS() {
+  const { user } = useAuth()
   const [categories, setCategories] = useState([])
   const [products,   setProducts]   = useState([])
   const [allSizes,   setAllSizes]   = useState([])
@@ -144,9 +146,15 @@ export default function POS() {
     if (!cart.length) return
     setSubmitting(true)
     try {
+      const cashierName = user?.user_metadata?.name || user?.user_metadata?.username || 'ไม่ทราบ'
       const { data: order, error: oErr } = await supabase
         .from('orders')
-        .insert({ total, status: 'pending' })
+        .insert({
+          total,
+          status:       'pending',
+          cashier_id:   user?.id   || null,
+          cashier_name: cashierName,
+        })
         .select().single()
       if (oErr) throw oErr
 

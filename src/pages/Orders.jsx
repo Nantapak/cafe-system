@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { printReceipt } from '../lib/printUtils'
-import { RefreshCw, ChevronDown, Printer } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { RefreshCw, ChevronDown, Printer, User } from 'lucide-react'
 
 const STATUS_LABELS = {
   pending:   { label: 'รอดำเนินการ', badge: 'badge-pending',   next: 'preparing', nextLabel: 'เริ่มทำ' },
@@ -12,6 +13,7 @@ const STATUS_LABELS = {
 }
 
 export default function Orders() {
+  const { user } = useAuth()
   const [orders,  setOrders]  = useState([])
   const [loading, setLoading] = useState(true)
   const [filter,  setFilter]  = useState('all')
@@ -32,9 +34,13 @@ export default function Orders() {
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
+  const handlerName = user?.user_metadata?.name || user?.user_metadata?.username || 'ไม่ทราบ'
+
   const updateStatus = async (id, status) => {
     await supabase.from('orders').update({
       status,
+      handled_by_id:   user?.id   || null,
+      handled_by_name: handlerName,
       ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}),
     }).eq('id', id)
     fetchOrders()
@@ -42,7 +48,11 @@ export default function Orders() {
 
   const cancelOrder = async (id) => {
     if (!confirm('ยืนยันการยกเลิกออเดอร์?')) return
-    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id)
+    await supabase.from('orders').update({
+      status:          'cancelled',
+      handled_by_id:   user?.id   || null,
+      handled_by_name: handlerName,
+    }).eq('id', id)
     fetchOrders()
   }
 
@@ -99,7 +109,12 @@ export default function Orders() {
                 >
                   <span className={s.badge}>{s.label}</span>
                   <span className="font-bold text-gray-700">#{order.order_number}</span>
-                  <span className="text-sm text-gray-500">{fmtDate(order.created_at)}</span>
+                  <span className="text-sm text-gray-500 hidden sm:inline">{fmtDate(order.created_at)}</span>
+                  {order.cashier_name && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-xs text-gray-400">
+                      <User size={11} />{order.cashier_name}
+                    </span>
+                  )}
                   <span className="ml-auto font-bold text-coffee-700">฿{Number(order.total).toLocaleString()}</span>
                   <span className="text-sm text-gray-400">
                     {order.order_items?.length || 0} รายการ
@@ -118,6 +133,21 @@ export default function Orders() {
                         </div>
                       ))}
                     </div>
+                    {/* ข้อมูลผู้ดำเนินการ */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-xs text-gray-400">
+                      <span className="sm:hidden">{fmtDate(order.created_at)}</span>
+                      {order.cashier_name && (
+                        <span className="flex items-center gap-1">
+                          <User size={11} /> สั่งโดย <span className="font-medium text-gray-600">{order.cashier_name}</span>
+                        </span>
+                      )}
+                      {order.handled_by_name && (
+                        <span className="flex items-center gap-1">
+                          <User size={11} /> อัปเดตโดย <span className="font-medium text-gray-600">{order.handled_by_name}</span>
+                        </span>
+                      )}
+                    </div>
+
                     {order.note && (
                       <p className="text-xs text-gray-500 mb-3 bg-yellow-50 border border-yellow-100 rounded px-2 py-1">
                         📝 {order.note}
