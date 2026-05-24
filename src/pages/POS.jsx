@@ -7,20 +7,7 @@ import {
   CheckCircle, RotateCcw, X, Printer,
 } from 'lucide-react'
 
-const NOTE_GROUPS = [
-  {
-    label: '🍬 น้ำตาล',
-    options: ['ไม่ใส่น้ำตาล', 'น้ำตาลน้อย', 'น้ำตาลมาก', 'เปลี่ยนเป็นน้ำตาลหลอด'],
-  },
-  {
-    label: '🧊 น้ำแข็ง',
-    options: ['ไม่ใส่น้ำแข็ง', 'น้ำแข็งน้อย', 'น้ำแข็งเพิ่ม'],
-  },
-  {
-    label: '✨ เพิ่มเติม',
-    options: ['เพิ่มช็อต', 'ใส่วิปครีม', 'ไม่ใส่นม', 'เปลี่ยนเป็นโอ๊ตมิลค์', 'ใส่นมข้นหวาน'],
-  },
-]
+const SUGAR_OPTIONS = ['ไม่หวาน', 'หวาน 50%', 'หวานปกติ', 'เพิ่มหวาน']
 
 const EMOJI = (catName = '') => {
   if (catName.includes('กาแฟ')) return '☕'
@@ -42,6 +29,7 @@ export default function POS() {
   const [lastOrder,  setLastOrder]  = useState(null)
   const [customize,  setCustomize]  = useState(null)
   const [cartOpen,   setCartOpen]   = useState(false)
+  const [costInfo,   setCostInfo]   = useState({ perCup: null, breakdown: [] })
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -78,15 +66,47 @@ export default function POS() {
   /* ── Customize modal ── */
   const openCustomize = (product) => {
     const sizes = allSizes.filter(s => s.product_id === product.id)
+    setCostInfo({ perCup: null, breakdown: [] })
     setCustomize({
       product,
       sizes,
       selectedSizeId: sizes[0]?.id ?? null,
-      selectedNotes: [],
+      sugarLevel: 'หวานปกติ',
       customNote: '',
       qty: 1,
     })
   }
+
+  /* ── คำนวณต้นทุนต่อแก้ว เมื่อเปิด modal หรือเปลี่ยน size ── */
+  useEffect(() => {
+    if (!customize?.product?.id) return
+    let cancelled = false
+    const fetchCost = async () => {
+      const { data: ings } = await supabase
+        .from('product_ingredients')
+        .select('quantity, size_id, inventory_id, inventory(name, unit, cost_per_unit)')
+        .eq('product_id', customize.product.id)
+
+      if (cancelled) return
+      if (!ings?.length) { setCostInfo({ perCup: null, breakdown: [] }); return }
+
+      const sizeId = customize.selectedSizeId
+      const sizeSpecific = ings.filter(r => r.size_id === sizeId)
+      const general      = ings.filter(r => !r.size_id)
+
+      const combined = [...sizeSpecific]
+      general.forEach(g => {
+        if (!combined.find(x => x.inventory_id === g.inventory_id)) combined.push(g)
+      })
+
+      const perCup = combined.reduce((sum, ing) =>
+        sum + Number(ing.quantity) * Number(ing.inventory?.cost_per_unit || 0), 0)
+
+      setCostInfo({ perCup, breakdown: combined })
+    }
+    fetchCost()
+    return () => { cancelled = true }
+  }, [customize?.product?.id, customize?.selectedSizeId])
 
   const currentPrice = () => {
     if (!customize) return 0
@@ -97,22 +117,14 @@ export default function POS() {
     return Number(customize.product.price)
   }
 
-  const toggleNote = (note) =>
-    setCustomize(c => ({
-      ...c,
-      selectedNotes: c.selectedNotes.includes(note)
-        ? c.selectedNotes.filter(n => n !== note)
-        : [...c.selectedNotes, note],
-    }))
-
   const confirmAdd = () => {
     if (!customize) return
-    const sz       = customize.sizes.find(s => s.id === customize.selectedSizeId)
-    const allNotes = [
-      ...customize.selectedNotes,
-      ...(customize.customNote.trim() ? [customize.customNote.trim()] : []),
-    ]
-    const note = allNotes.join(', ') || null
+    const sz = customize.sizes.find(s => s.id === customize.selectedSizeId)
+    const noteParts = [
+      customize.sugarLevel,
+      customize.customNote.trim() || null,
+    ].filter(Boolean)
+    const note = noteParts.join(' | ') || null
 
     const newItem = {
       cartKey:      Date.now() + Math.random(),
@@ -512,26 +524,53 @@ export default function POS() {
                 </div>
               )}
 
-              {/* Notes */}
-              {NOTE_GROUPS.map(group => (
-                <div key={group.label}>
-                  <p className="text-sm font-semibold text-gray-700 mb-2">{group.label}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {group.options.map(opt => (
-                      <button
-                        key={opt}
-                        onClick={() => toggleNote(opt)}
-                        className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all
-                          ${customize.selectedNotes.includes(opt)
-                            ? 'bg-coffee-600 border-coffee-600 text-white'
-                            : 'bg-white border-gray-200 text-gray-600 hover:border-coffee-400'}`}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
+              {/* 🍬 ระดับความหวาน */}
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">🍬 ระดับความหวาน</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {SUGAR_OPTIONS.map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => setCustomize(c => ({ ...c, sugarLevel: opt }))}
+                      className={`px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all
+                        ${customize.sugarLevel === opt
+                          ? 'border-coffee-600 bg-coffee-50 text-coffee-700'
+                          : 'border-gray-200 text-gray-600 hover:border-coffee-300 bg-white'}`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* 💰 ต้นทุนต่อแก้ว */}
+              {costInfo.perCup !== null && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-semibold text-amber-800">💰 ต้นทุนต่อแก้ว</p>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="text-amber-700 font-bold">฿{costInfo.perCup.toFixed(2)}</span>
+                      <span className="text-gray-400">|</span>
+                      <span className="font-semibold text-green-700">
+                        กำไร ฿{(currentPrice() - costInfo.perCup).toFixed(2)}
+                        <span className="text-green-600 ml-1 font-normal">
+                          ({currentPrice() > 0 ? Math.round(((currentPrice() - costInfo.perCup) / currentPrice()) * 100) : 0}%)
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  {costInfo.breakdown.length > 0 && (
+                    <div className="space-y-0.5">
+                      {costInfo.breakdown.map((ing, i) => (
+                        <div key={i} className="flex justify-between text-xs text-amber-700">
+                          <span className="opacity-80">{ing.inventory?.name} {ing.quantity} {ing.inventory?.unit}</span>
+                          <span>฿{(Number(ing.quantity) * Number(ing.inventory?.cost_per_unit || 0)).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* หมายเหตุเพิ่มเติม */}
               <div>
@@ -540,7 +579,7 @@ export default function POS() {
                   type="text"
                   value={customize.customNote}
                   onChange={e => setCustomize(c => ({ ...c, customNote: e.target.value }))}
-                  placeholder="เช่น ไม่ใส่น้ำแข็ง, หวานน้อยมาก..."
+                  placeholder="เช่น ไม่ใส่น้ำแข็ง, เพิ่มช็อต, ใส่วิปครีม..."
                   className="input w-full text-sm"
                 />
               </div>

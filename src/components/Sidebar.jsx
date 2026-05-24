@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, ShoppingCart, ClipboardList,
-  Coffee, Package, Users, LogOut,
+  Coffee, Package, Users, LogOut, BarChart2,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -12,6 +12,7 @@ const ALL_NAV = [
   { to: '/menu',      icon: Coffee,          label: 'จัดการเมนู',       roles: ['admin'] },
   { to: '/inventory', icon: Package,         label: 'สต็อกวัตถุดิบ',    roles: ['admin'] },
   { to: '/staff',     icon: Users,           label: 'จัดการพนักงาน',    roles: ['admin'] },
+  { to: '/reports',  icon: BarChart2,       label: 'รายงานยอดขาย',     roles: ['admin'] },
 ]
 
 const ROLE_LABELS = {
