@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, ShoppingCart, ClipboardList,
-  Coffee, Package, LogOut,
+  Coffee, Package, Users, LogOut,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -11,6 +11,7 @@ const ALL_NAV = [
   { to: '/orders',    icon: ClipboardList,   label: 'ออเดอร์',          roles: ['admin', 'cashier', 'barista'] },
   { to: '/menu',      icon: Coffee,          label: 'จัดการเมนู',       roles: ['admin'] },
   { to: '/inventory', icon: Package,         label: 'สต็อกวัตถุดิบ',    roles: ['admin'] },
+  { to: '/staff',     icon: Users,           label: 'จัดการพนักงาน',    roles: ['admin'] },
 ]
 
 const ROLE_LABELS = {
@@ -23,12 +24,14 @@ export default function Sidebar() {
   const { user, role, signOut } = useAuth()
   const navItems = ALL_NAV.filter(n => n.roles.includes(role))
 
+  const displayName = user?.user_metadata?.name || user?.user_metadata?.username || '-'
+  const username    = user?.user_metadata?.username || user?.email?.replace('@cafe.local', '')
+
   return (
     <aside className="hidden md:flex flex-col bg-coffee-800 text-white shadow-xl shrink-0 w-16 lg:w-60 transition-[width] duration-200">
-      {/* Logo */}
       <div className="flex items-center gap-3 px-3 lg:px-5 py-5 border-b border-coffee-700 min-h-[72px]">
         <span className="text-2xl shrink-0">
-          {import.meta.env.VITE_SHOP_EMOJI || '☕'}
+          {import.meta.env.VITE_SHOP_EMOJI || 'coffee'}
         </span>
         <div className="hidden lg:block overflow-hidden">
           <p className="font-bold text-base leading-tight truncate">
@@ -40,7 +43,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 py-4 px-2 lg:px-3 space-y-1 overflow-y-auto">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
@@ -60,10 +62,10 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* User info + Logout */}
       <div className="px-2 lg:px-4 py-4 border-t border-coffee-700">
         <div className="hidden lg:block mb-3">
-          <p className="text-xs text-coffee-200 font-medium truncate">{user?.email}</p>
+          <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+          <p className="text-xs text-coffee-400 truncate">@{username}</p>
           <span className="inline-block mt-1 text-xs bg-coffee-600 text-coffee-100 rounded-full px-2 py-0.5">
             {ROLE_LABELS[role] || role}
           </span>

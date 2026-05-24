@@ -7,15 +7,15 @@ import POS       from './pages/POS'
 import Orders    from './pages/Orders'
 import MenuAdmin from './pages/MenuAdmin'
 import Inventory from './pages/Inventory'
+import Staff     from './pages/Staff'
 
-/* กั้นเส้นทางตาม role */
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, role } = useAuth()
 
   if (user === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-coffee-50 text-coffee-600 text-lg">
-        ☕ กำลังโหลด...
+        กำลังโหลด...
       </div>
     )
   }
@@ -38,7 +38,7 @@ function LoginGuard() {
   const { user, role } = useAuth()
   if (user === undefined) return (
     <div className="min-h-screen flex items-center justify-center bg-coffee-50 text-coffee-600 text-lg">
-      ☕ กำลังโหลด...
+      กำลังโหลด...
     </div>
   )
   if (user) return <Navigate to={ROLE_DEFAULT[role] || '/pos'} replace />
@@ -85,6 +85,12 @@ export default function App() {
           <Route path="inventory" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <Inventory />
+            </ProtectedRoute>
+          } />
+
+          <Route path="staff" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Staff />
             </ProtectedRoute>
           } />
         </Route>

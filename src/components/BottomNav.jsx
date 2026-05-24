@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ShoppingCart, ClipboardList, Coffee, Package } from 'lucide-react'
+import { LayoutDashboard, ShoppingCart, ClipboardList, Coffee, Package, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const ALL_NAV = [
@@ -8,6 +8,7 @@ const ALL_NAV = [
   { to: '/orders',    icon: ClipboardList,   label: 'ออเดอร์',   roles: ['admin', 'cashier', 'barista'] },
   { to: '/menu',      icon: Coffee,          label: 'เมนู',      roles: ['admin'] },
   { to: '/inventory', icon: Package,         label: 'สต็อก',     roles: ['admin'] },
+  { to: '/staff',     icon: Users,           label: 'พนักงาน',   roles: ['admin'] },
 ]
 
 export default function BottomNav() {

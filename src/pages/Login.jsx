@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, ROLE_DEFAULT } from '../contexts/AuthContext'
-import { Coffee, Eye, EyeOff } from 'lucide-react'
+import { Coffee, Eye, EyeOff, User } from 'lucide-react'
 
 export default function Login() {
   const { signIn } = useAuth()
   const navigate   = useNavigate()
 
-  const [email,    setEmail]    = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd,  setShowPwd]  = useState(false)
   const [error,    setError]    = useState(null)
@@ -18,12 +18,13 @@ export default function Login() {
     setError(null)
     setLoading(true)
     try {
-      const { data, error } = await signIn(email.trim(), password)
+      const email = `${username.trim().toLowerCase()}@cafe.local`
+      const { data, error } = await signIn(email, password)
       if (error) throw error
       const userRole = data.user?.user_metadata?.role || 'cashier'
       navigate(ROLE_DEFAULT[userRole] || '/pos', { replace: true })
     } catch {
-      setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+      setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง')
     } finally {
       setLoading(false)
     }
@@ -31,13 +32,12 @@ export default function Login() {
 
   const SHOP_NAME    = import.meta.env.VITE_SHOP_NAME    || 'ร้านกาแฟ'
   const SHOP_TAGLINE = import.meta.env.VITE_SHOP_TAGLINE || 'Cafe Management'
-  const SHOP_EMOJI   = import.meta.env.VITE_SHOP_EMOJI   || '☕'
+  const SHOP_EMOJI   = import.meta.env.VITE_SHOP_EMOJI   || 'coffee'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-coffee-900 via-coffee-800 to-coffee-700 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur rounded-3xl mb-4 shadow-xl border border-white/20">
             <span className="text-4xl">{SHOP_EMOJI}</span>
@@ -46,7 +46,6 @@ export default function Login() {
           <p className="text-coffee-300 text-sm mt-1">{SHOP_TAGLINE}</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
             <Coffee size={20} className="text-coffee-600" />
@@ -55,17 +54,24 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="input w-full"
-                placeholder="email@example.com"
-                required
-                autoFocus
-                autoComplete="email"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <User size={15} />
+                </span>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                  className="input w-full pl-9"
+                  placeholder="กรอกชื่อผู้ใช้"
+                  required
+                  autoFocus
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                />
+              </div>
             </div>
 
             <div>
@@ -76,7 +82,7 @@ export default function Login() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className="input w-full pr-10"
-                  placeholder="••••••••"
+                  placeholder="........"
                   required
                   autoComplete="current-password"
                 />
@@ -92,7 +98,7 @@ export default function Login() {
 
             {error && (
               <div className="text-red-600 text-sm bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
-                ⚠️ {error}
+                {error}
               </div>
             )}
 
