@@ -402,7 +402,7 @@ export default function POS() {
       {cart.length > 0 && !cartOpen && (
         <button
           onClick={() => setCartOpen(true)}
-          className="md:hidden fixed bottom-20 right-4 z-30 bg-coffee-600 text-white
+          className="md:hidden fixed bottom-20 right-4 z-40 bg-coffee-600 text-white
                      rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3
                      active:scale-95 transition-transform"
         >
@@ -417,9 +417,9 @@ export default function POS() {
 
       {/* ════════════ Cart Bottom Sheet — มือถือ ════════════ */}
       {cartOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex flex-col justify-end">
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40" onClick={() => setCartOpen(false)} />
-          <div className="relative bg-white rounded-t-2xl shadow-2xl flex flex-col max-h-[85vh]">
+          <div className="relative bg-white rounded-t-2xl shadow-2xl flex flex-col max-h-[90vh]">
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-gray-300 rounded-full" />
             </div>
@@ -445,8 +445,8 @@ export default function POS() {
 
             <CartItems />
 
-            <div className="px-4 py-4 border-t border-gray-100 space-y-3 bg-white"
-                 style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
+            <div className="px-4 pt-4 pb-4 border-t border-gray-100 space-y-3 bg-white shrink-0"
+                 style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 font-medium">รวมทั้งหมด</span>
                 <span className="text-2xl font-bold text-coffee-700">฿{total.toLocaleString()}</span>
