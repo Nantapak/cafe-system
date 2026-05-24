@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Pencil, Trash2, X, Check, ToggleLeft, ToggleRight, FlaskConical, Layers } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, ToggleLeft, ToggleRight, FlaskConical, Layers, TrendingUp } from 'lucide-react'
 
 const EMPTY_FORM = { name: '', description: '', price: '', category_id: '', is_available: true, image_url: '' }
 
@@ -29,13 +29,14 @@ export default function MenuAdmin() {
   const [savingIng,   setSavingIng]   = useState(false)
   const [ingCounts,   setIngCounts]   = useState({})
   const [sizeCounts,  setSizeCounts]  = useState({})
+  const [costMap,     setCostMap]     = useState({})   // productId → ต้นทุนฐาน (general ings)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     const [{ data: cats }, { data: prods }, { data: inv }, { data: sz }] = await Promise.all([
       supabase.from('categories').select('*').order('sort_order'),
       supabase.from('products').select('*, categories(name)').order('sort_order'),
-      supabase.from('inventory').select('id, name, unit').order('name'),
+      supabase.from('inventory').select('id, name, unit, cost_per_unit').order('name'),
       supabase.from('product_sizes').select('*').order('sort_order'),
     ])
     setCategories(cats || [])
@@ -51,13 +52,22 @@ export default function MenuAdmin() {
     if (!products.length) return
     Promise.all([
       supabase.from('product_sizes').select('product_id'),
-      supabase.from('product_ingredients').select('product_id'),
+      supabase.from('product_ingredients')
+        .select('product_id, quantity, size_id, inventory(cost_per_unit)'),
     ]).then(([{ data: szRows }, { data: ingRows }]) => {
-      const sc = {}, ic = {}
-      szRows?.forEach(r  => { sc[r.product_id] = (sc[r.product_id] || 0) + 1 })
-      ingRows?.forEach(r => { ic[r.product_id] = (ic[r.product_id] || 0) + 1 })
+      const sc = {}, ic = {}, cm = {}
+      szRows?.forEach(r => { sc[r.product_id] = (sc[r.product_id] || 0) + 1 })
+      ingRows?.forEach(r => {
+        ic[r.product_id] = (ic[r.product_id] || 0) + 1
+        // ต้นทุนฐาน = ส่วนผสมที่ใช้กับทุก size (size_id = null)
+        if (!r.size_id) {
+          cm[r.product_id] = (cm[r.product_id] || 0)
+            + Number(r.quantity) * Number(r.inventory?.cost_per_unit || 0)
+        }
+      })
       setSizeCounts(sc)
       setIngCounts(ic)
+      setCostMap(cm)
     })
   }, [products])
 
@@ -114,7 +124,7 @@ export default function MenuAdmin() {
   const fetchIngredients = async (productId) => {
     const { data } = await supabase
       .from('product_ingredients')
-      .select('id, quantity, inventory_id, size_id, inventory(name, unit), product_sizes(name)')
+      .select('id, quantity, inventory_id, size_id, inventory(name, unit, cost_per_unit), product_sizes(name)')
       .eq('product_id', productId)
       .order('size_id', { nullsFirst: true })
     setIngredients(data || [])
@@ -222,6 +232,19 @@ export default function MenuAdmin() {
                         <FlaskConical size={10} />
                         {ingCounts[p.id] ? `${ingCounts[p.id]} ส่วนผสม` : 'ตั้งส่วนผสม'}
                       </button>
+                      {/* ต้นทุน/กำไร badge */}
+                      {costMap[p.id] > 0 && (() => {
+                        const cost   = costMap[p.id]
+                        const price  = Number(p.price)
+                        const profit = price > 0 ? Math.round(((price - cost) / price) * 100) : null
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700">
+                            <TrendingUp size={10} />
+                            ต้นทุน ฿{cost.toFixed(0)}
+                            {profit !== null && <span className="text-green-600 ml-0.5">· กำไร {profit}%</span>}
+                          </span>
+                        )
+                      })()}
                     </div>
                   </div>
 
@@ -257,6 +280,7 @@ export default function MenuAdmin() {
                   <th className="text-right px-4 py-3 text-gray-600 font-semibold">ราคาเริ่มต้น</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-semibold">Size</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-semibold hidden lg:table-cell">ส่วนผสม</th>
+                  <th className="text-right px-4 py-3 text-gray-600 font-semibold hidden xl:table-cell">ต้นทุน / กำไร</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-semibold">สถานะ</th>
                   <th className="text-center px-4 py-3 text-gray-600 font-semibold">จัดการ</th>
                 </tr>
@@ -285,6 +309,27 @@ export default function MenuAdmin() {
                         <FlaskConical size={12} />
                         {ingCounts[p.id] ? `${ingCounts[p.id]} รายการ` : 'ตั้งค่า'}
                       </button>
+                    </td>
+                    <td className="px-4 py-3 text-right hidden xl:table-cell">
+                      {costMap[p.id] > 0 ? (() => {
+                        const cost   = costMap[p.id]
+                        const price  = Number(p.price)
+                        const profit = price > 0 ? (price - cost) : null
+                        const pct    = price > 0 ? Math.round(((price - cost) / price) * 100) : null
+                        return (
+                          <div className="text-xs">
+                            <p className="text-amber-700 font-semibold">ต้นทุน ฿{cost.toFixed(2)}</p>
+                            {profit !== null && (
+                              <p className={`font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                กำไร ฿{profit.toFixed(2)}
+                                <span className="font-normal ml-1 opacity-80">({pct}%)</span>
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })() : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button onClick={() => toggleAvailable(p)} className="inline-flex items-center gap-1 text-xs">
@@ -430,14 +475,38 @@ export default function MenuAdmin() {
                 </div>
               ))}
 
-              {filteredIngredients.length > 0 && costForFilter > 0 && (
-                <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-700">
-                  💰 ต้นทุนวัตถุดิบ
-                  {ingSizeFilter !== 'all' && ingSizeFilter !== 'general'
-                    ? ` Size ${pSizes.find(s => s.id === ingSizeFilter)?.name}` : ''}
-                  : <strong>฿{costForFilter.toFixed(2)}</strong> / แก้ว
-                </div>
-              )}
+              {filteredIngredients.length > 0 && costForFilter > 0 && (() => {
+                // หาราคาขายสำหรับ filter ที่เลือก
+                const selectedSize = ingSizeFilter !== 'all' && ingSizeFilter !== 'general'
+                  ? pSizes.find(s => s.id === ingSizeFilter) : null
+                const sellingPrice = selectedSize
+                  ? Number(selectedSize.price)
+                  : Number(ingModal?.price || 0)
+                const profit    = sellingPrice > 0 ? sellingPrice - costForFilter : null
+                const profitPct = sellingPrice > 0 ? Math.round(((sellingPrice - costForFilter) / sellingPrice) * 100) : null
+                return (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-amber-800">
+                        💰 ต้นทุน{selectedSize ? ` Size ${selectedSize.name}` : ''}
+                      </span>
+                      <span className="font-bold text-amber-700">฿{costForFilter.toFixed(2)} / แก้ว</span>
+                    </div>
+                    {profit !== null && sellingPrice > 0 && (
+                      <div className="flex items-center justify-between text-xs border-t border-amber-200 pt-1.5">
+                        <span className="text-gray-500">
+                          ราคาขาย ฿{sellingPrice.toFixed(0)}
+                          {selectedSize ? ` (${selectedSize.name})` : ''}
+                        </span>
+                        <span className={`font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          กำไร ฿{profit.toFixed(2)}
+                          <span className="font-normal ml-1">({profitPct}%)</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="px-5 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl space-y-2">

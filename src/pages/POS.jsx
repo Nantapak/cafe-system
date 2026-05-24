@@ -7,7 +7,7 @@ import {
   CheckCircle, RotateCcw, X, Printer,
 } from 'lucide-react'
 
-const SUGAR_OPTIONS = ['ไม่หวาน', 'หวาน 50%', 'หวานปกติ', 'เพิ่มหวาน']
+const SUGAR_OPTIONS = ['ไม่หวาน', 'หวาน 50%', 'หวานน้อย', 'หวานปกติ', 'เพิ่มหวาน']
 
 const EMOJI = (catName = '') => {
   if (catName.includes('กาแฟ')) return '☕'
@@ -528,11 +528,12 @@ export default function POS() {
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-2">🍬 ระดับความหวาน</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {SUGAR_OPTIONS.map(opt => (
+                  {SUGAR_OPTIONS.map((opt, i) => (
                     <button
                       key={opt}
                       onClick={() => setCustomize(c => ({ ...c, sugarLevel: opt }))}
                       className={`px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all
+                        ${SUGAR_OPTIONS.length % 2 !== 0 && i === SUGAR_OPTIONS.length - 1 ? 'col-span-2' : ''}
                         ${customize.sugarLevel === opt
                           ? 'border-coffee-600 bg-coffee-50 text-coffee-700'
                           : 'border-gray-200 text-gray-600 hover:border-coffee-300 bg-white'}`}
@@ -543,32 +544,18 @@ export default function POS() {
                 </div>
               </div>
 
-              {/* 💰 ต้นทุนต่อแก้ว */}
-              {costInfo.perCup !== null && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-xs font-semibold text-amber-800">💰 ต้นทุนต่อแก้ว</p>
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="text-amber-700 font-bold">฿{costInfo.perCup.toFixed(2)}</span>
-                      <span className="text-gray-400">|</span>
-                      <span className="font-semibold text-green-700">
-                        กำไร ฿{(currentPrice() - costInfo.perCup).toFixed(2)}
-                        <span className="text-green-600 ml-1 font-normal">
-                          ({currentPrice() > 0 ? Math.round(((currentPrice() - costInfo.perCup) / currentPrice()) * 100) : 0}%)
-                        </span>
-                      </span>
-                    </div>
+              {/* 🧾 สูตร (แสดงส่วนผสมสำหรับบาริสต้า ไม่แสดงต้นทุน) */}
+              {costInfo.breakdown.length > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
+                  <p className="text-xs font-semibold text-purple-800 mb-2">🧾 สูตร</p>
+                  <div className="space-y-1">
+                    {costInfo.breakdown.map((ing, i) => (
+                      <div key={i} className="flex justify-between text-xs text-purple-700">
+                        <span>{ing.inventory?.name}</span>
+                        <span className="font-semibold">{ing.quantity} {ing.inventory?.unit}</span>
+                      </div>
+                    ))}
                   </div>
-                  {costInfo.breakdown.length > 0 && (
-                    <div className="space-y-0.5">
-                      {costInfo.breakdown.map((ing, i) => (
-                        <div key={i} className="flex justify-between text-xs text-amber-700">
-                          <span className="opacity-80">{ing.inventory?.name} {ing.quantity} {ing.inventory?.unit}</span>
-                          <span>฿{(Number(ing.quantity) * Number(ing.inventory?.cost_per_unit || 0)).toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 
