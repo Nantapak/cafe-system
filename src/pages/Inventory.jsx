@@ -11,7 +11,7 @@ export default function Inventory() {
   const [form,     setForm]     = useState(EMPTY_ITEM)
   const [editId,   setEditId]   = useState(null)
   const [showModal,setShowModal]= useState(false)
-  const [adjModal, setAdjModal] = useState(null) // { item, type: 'in'|'out'|'adjust' }
+  const [adjModal, setAdjModal] = useState(null)
   const [adjQty,   setAdjQty]   = useState('')
   const [adjNote,  setAdjNote]  = useState('')
   const [saving,   setSaving]   = useState(false)
@@ -29,7 +29,8 @@ export default function Inventory() {
 
   const openNew  = () => { setForm(EMPTY_ITEM); setEditId(null); setShowModal(true) }
   const openEdit = (item) => {
-    setForm({ name: item.name, unit: item.unit, quantity: String(item.quantity), min_quantity: String(item.min_quantity), cost_per_unit: String(item.cost_per_unit || '') })
+    setForm({ name: item.name, unit: item.unit, quantity: String(item.quantity),
+      min_quantity: String(item.min_quantity), cost_per_unit: String(item.cost_per_unit || '') })
     setEditId(item.id)
     setShowModal(true)
   }
@@ -112,63 +113,132 @@ export default function Inventory() {
         <div className="text-center py-20 text-gray-400">กำลังโหลด...</div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold">วัตถุดิบ</th>
-                <th className="text-right px-4 py-3 text-gray-600 font-semibold">คงเหลือ</th>
-                <th className="text-right px-4 py-3 text-gray-600 font-semibold">ขั้นต่ำ</th>
-                <th className="text-right px-4 py-3 text-gray-600 font-semibold">ราคา/หน่วย</th>
-                <th className="text-center px-4 py-3 text-gray-600 font-semibold">สถานะ</th>
-                <th className="text-center px-4 py-3 text-gray-600 font-semibold">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {items.map(item => {
-                const isLow = Number(item.quantity) <= Number(item.min_quantity)
-                return (
-                  <tr key={item.id} className={`hover:bg-gray-50 ${isLow ? 'bg-red-50/50' : ''}`}>
-                    <td className="px-4 py-3">
-                      <button onClick={() => fetchTx(item.id)} className="font-medium text-gray-800 hover:text-coffee-600 transition-colors text-left">
+
+          {/* ───── Mobile: Card list (< md) ───── */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {items.length === 0 && (
+              <p className="text-center py-10 text-gray-400 text-sm">ยังไม่มีวัตถุดิบ</p>
+            )}
+            {items.map(item => {
+              const isLow = Number(item.quantity) <= Number(item.min_quantity)
+              return (
+                <div key={item.id} className={`px-4 py-3 ${isLow ? 'bg-red-50/40' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <button
+                        onClick={() => fetchTx(item.id)}
+                        className="font-semibold text-gray-800 hover:text-coffee-600 transition-colors text-left w-full truncate"
+                      >
                         {item.name}
                       </button>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={`font-bold ${isLow ? 'text-red-600' : 'text-gray-700'}`}>
-                        {Number(item.quantity).toLocaleString()}
-                      </span>
-                      <span className="text-gray-400 ml-1">{item.unit}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-500">
-                      {Number(item.min_quantity).toLocaleString()} {item.unit}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-500">
-                      ฿{Number(item.cost_per_unit || 0).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {isLow
-                        ? <span className="badge-cancelled flex items-center justify-center gap-1"><AlertTriangle size={10} />ใกล้หมด</span>
-                        : <span className="badge-ready">ปกติ</span>
-                      }
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => openAdj(item, 'in')} title="รับเข้า" className="p-1.5 hover:bg-green-50 rounded-lg text-green-500 transition-colors">
-                          <ArrowUpCircle size={15} />
-                        </button>
-                        <button onClick={() => openAdj(item, 'out')} title="ใช้ออก" className="p-1.5 hover:bg-orange-50 rounded-lg text-orange-400 transition-colors">
-                          <ArrowDownCircle size={15} />
-                        </button>
-                        <button onClick={() => openEdit(item)} title="แก้ไข" className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-400 transition-colors">
-                          <Pencil size={14} />
-                        </button>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`text-sm font-bold ${isLow ? 'text-red-600' : 'text-gray-700'}`}>
+                          {Number(item.quantity).toLocaleString()}
+                        </span>
+                        <span className="text-xs text-gray-400">{item.unit}</span>
+                        {isLow ? (
+                          <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-red-500">
+                            <AlertTriangle size={10} /> ใกล้หมด
+                          </span>
+                        ) : (
+                          <span className="text-xs text-green-600 font-medium">ปกติ</span>
+                        )}
                       </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        ขั้นต่ำ {Number(item.min_quantity).toLocaleString()} {item.unit}
+                        {item.cost_per_unit > 0 && ` · ฿${Number(item.cost_per_unit).toFixed(2)}/หน่วย`}
+                      </p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button onClick={() => openAdj(item, 'in')} title="รับเข้า"
+                        className="p-2 rounded-lg text-green-500 hover:bg-green-50 transition-colors">
+                        <ArrowUpCircle size={18} />
+                      </button>
+                      <button onClick={() => openAdj(item, 'out')} title="ใช้ออก"
+                        className="p-2 rounded-lg text-orange-400 hover:bg-orange-50 transition-colors">
+                        <ArrowDownCircle size={18} />
+                      </button>
+                      <button onClick={() => openEdit(item)} title="แก้ไข"
+                        className="p-2 rounded-lg text-blue-400 hover:bg-blue-50 transition-colors">
+                        <Pencil size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ───── Desktop: Table (md+) ───── */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="text-left px-4 py-3 text-gray-600 font-semibold">วัตถุดิบ</th>
+                  <th className="text-right px-4 py-3 text-gray-600 font-semibold">คงเหลือ</th>
+                  <th className="text-right px-4 py-3 text-gray-600 font-semibold hidden lg:table-cell">ขั้นต่ำ</th>
+                  <th className="text-right px-4 py-3 text-gray-600 font-semibold hidden lg:table-cell">ราคา/หน่วย</th>
+                  <th className="text-center px-4 py-3 text-gray-600 font-semibold">สถานะ</th>
+                  <th className="text-center px-4 py-3 text-gray-600 font-semibold">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {items.map(item => {
+                  const isLow = Number(item.quantity) <= Number(item.min_quantity)
+                  return (
+                    <tr key={item.id} className={`hover:bg-gray-50 ${isLow ? 'bg-red-50/50' : ''}`}>
+                      <td className="px-4 py-3">
+                        <button onClick={() => fetchTx(item.id)}
+                          className="font-medium text-gray-800 hover:text-coffee-600 transition-colors text-left">
+                          {item.name}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`font-bold ${isLow ? 'text-red-600' : 'text-gray-700'}`}>
+                          {Number(item.quantity).toLocaleString()}
+                        </span>
+                        <span className="text-gray-400 ml-1">{item.unit}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-500 hidden lg:table-cell">
+                        {Number(item.min_quantity).toLocaleString()} {item.unit}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-500 hidden lg:table-cell">
+                        ฿{Number(item.cost_per_unit || 0).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {isLow
+                          ? <span className="badge-cancelled flex items-center justify-center gap-1"><AlertTriangle size={10} />ใกล้หมด</span>
+                          : <span className="badge-ready">ปกติ</span>
+                        }
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => openAdj(item, 'in')} title="รับเข้า"
+                            className="p-1.5 hover:bg-green-50 rounded-lg text-green-500 transition-colors">
+                            <ArrowUpCircle size={15} />
+                          </button>
+                          <button onClick={() => openAdj(item, 'out')} title="ใช้ออก"
+                            className="p-1.5 hover:bg-orange-50 rounded-lg text-orange-400 transition-colors">
+                            <ArrowDownCircle size={15} />
+                          </button>
+                          <button onClick={() => openEdit(item)} title="แก้ไข"
+                            className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-400 transition-colors">
+                            <Pencil size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {items.length === 0 && (
+              <p className="text-center py-10 text-gray-400 text-sm">ยังไม่มีวัตถุดิบ</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -213,28 +283,33 @@ export default function Inventory() {
             <div className="px-5 py-4 space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">ชื่อวัตถุดิบ *</label>
-                <input className="input" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder="เช่น เมล็ดกาแฟ" />
+                <input className="input" value={form.name}
+                  onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder="เช่น เมล็ดกาแฟ" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">หน่วย</label>
-                  <select className="input" value={form.unit} onChange={e => setForm(f => ({...f, unit: e.target.value}))}>
+                  <select className="input" value={form.unit}
+                    onChange={e => setForm(f => ({...f, unit: e.target.value}))}>
                     {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">จำนวนปัจจุบัน</label>
-                  <input className="input" type="number" min="0" value={form.quantity} onChange={e => setForm(f => ({...f, quantity: e.target.value}))} placeholder="0" />
+                  <input className="input" type="number" min="0" value={form.quantity}
+                    onChange={e => setForm(f => ({...f, quantity: e.target.value}))} placeholder="0" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">ขั้นต่ำ (แจ้งเตือน)</label>
-                  <input className="input" type="number" min="0" value={form.min_quantity} onChange={e => setForm(f => ({...f, min_quantity: e.target.value}))} placeholder="0" />
+                  <input className="input" type="number" min="0" value={form.min_quantity}
+                    onChange={e => setForm(f => ({...f, min_quantity: e.target.value}))} placeholder="0" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">ราคา/หน่วย (บาท)</label>
-                  <input className="input" type="number" min="0" step="0.01" value={form.cost_per_unit} onChange={e => setForm(f => ({...f, cost_per_unit: e.target.value}))} placeholder="0.00" />
+                  <input className="input" type="number" min="0" step="0.01" value={form.cost_per_unit}
+                    onChange={e => setForm(f => ({...f, cost_per_unit: e.target.value}))} placeholder="0.00" />
                 </div>
               </div>
             </div>
@@ -268,7 +343,8 @@ export default function Inventory() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   {adjModal.type === 'adjust' ? 'จำนวนใหม่' : 'จำนวน'} ({adjModal.item.unit})
                 </label>
-                <input className="input text-lg font-bold" type="number" min="0" step="0.1" value={adjQty} onChange={e => setAdjQty(e.target.value)} placeholder="0" autoFocus />
+                <input className="input text-lg font-bold" type="number" min="0" step="0.1"
+                  value={adjQty} onChange={e => setAdjQty(e.target.value)} placeholder="0" autoFocus />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">หมายเหตุ</label>

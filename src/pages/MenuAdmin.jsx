@@ -17,14 +17,14 @@ export default function MenuAdmin() {
   const [filterCat,  setFilterCat]  = useState(null)
 
   // --- Sizes ---
-  const [sizeModal,  setSizeModal]  = useState(null)   // product
+  const [sizeModal,  setSizeModal]  = useState(null)
   const [newSize,    setNewSize]    = useState({ name: '', price: '' })
   const [savingSize, setSavingSize] = useState(false)
 
   // --- Ingredients ---
-  const [ingModal,    setIngModal]    = useState(null)   // product
+  const [ingModal,    setIngModal]    = useState(null)
   const [ingredients, setIngredients] = useState([])
-  const [ingSizeFilter, setIngSizeFilter] = useState('all')  // 'all' | size_id | 'general'
+  const [ingSizeFilter, setIngSizeFilter] = useState('all')
   const [newIng,      setNewIng]      = useState({ inventory_id: '', quantity: '', size_id: '' })
   const [savingIng,   setSavingIng]   = useState(false)
   const [ingCounts,   setIngCounts]   = useState({})
@@ -47,7 +47,6 @@ export default function MenuAdmin() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  // นับ sizes / ingredients ต่อสินค้า
   useEffect(() => {
     if (!products.length) return
     Promise.all([
@@ -153,7 +152,6 @@ export default function MenuAdmin() {
     setIngredients(prev => prev.map(i => i.id === id ? { ...i, quantity: parseFloat(qty) } : i))
   }
 
-  // filter ingredients ตาม tab
   const filteredIngredients = ingredients.filter(i => {
     if (ingSizeFilter === 'all')     return true
     if (ingSizeFilter === 'general') return !i.size_id
@@ -163,7 +161,6 @@ export default function MenuAdmin() {
   const filtered = filterCat ? products.filter(p => p.category_id === filterCat) : products
   const pSizes = ingModal ? productSizes(ingModal.id) : []
 
-  // ต้นทุนโดยประมาณ
   const costForFilter = filteredIngredients.reduce((sum, ing) => {
     const invItem = inventory.find(i => i.id === ing.inventory_id)
     return sum + Number(ing.quantity) * Number(invItem?.cost_per_unit || 0)
@@ -178,7 +175,7 @@ export default function MenuAdmin() {
         </button>
       </div>
 
-      {/* Filter */}
+      {/* Category filter */}
       <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
         <button onClick={() => setFilterCat(null)}
           className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
@@ -196,64 +193,124 @@ export default function MenuAdmin() {
         <div className="text-center py-20 text-gray-400">กำลังโหลด...</div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold">ชื่อสินค้า</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold">หมวดหมู่</th>
-                <th className="text-right px-4 py-3 text-gray-600 font-semibold">ราคาเริ่มต้น</th>
-                <th className="text-center px-4 py-3 text-gray-600 font-semibold">Size</th>
-                <th className="text-center px-4 py-3 text-gray-600 font-semibold">ส่วนผสม</th>
-                <th className="text-center px-4 py-3 text-gray-600 font-semibold">สถานะ</th>
-                <th className="text-center px-4 py-3 text-gray-600 font-semibold">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map(p => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-800">{p.name}</p>
-                    {p.description && <p className="text-xs text-gray-400 truncate max-w-xs">{p.description}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{p.categories?.name || '—'}</td>
-                  <td className="px-4 py-3 text-right font-bold text-coffee-700">฿{Number(p.price).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-center">
-                    <button onClick={() => openSizeModal(p)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium
-                        bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
-                      <Layers size={12} />
-                      {sizeCounts[p.id] ? `${sizeCounts[p.id]} size` : 'ตั้งค่า'}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button onClick={() => openIngModal(p)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium
-                        bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
-                      <FlaskConical size={12} />
-                      {ingCounts[p.id] ? `${ingCounts[p.id]} รายการ` : 'ตั้งค่า'}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button onClick={() => toggleAvailable(p)} className="inline-flex items-center gap-1 text-xs">
-                      {p.is_available
-                        ? <><ToggleRight size={20} className="text-green-500" /><span className="text-green-600">พร้อมขาย</span></>
-                        : <><ToggleLeft  size={20} className="text-gray-300" /><span className="text-gray-400">ปิด</span></>}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-500">
-                        <Pencil size={14} />
+
+          {/* ───── Mobile: Card list (< sm) ───── */}
+          <div className="sm:hidden divide-y divide-gray-100">
+            {filtered.length === 0 && (
+              <p className="text-center py-10 text-gray-400 text-sm">ไม่มีสินค้า</p>
+            )}
+            {filtered.map(p => (
+              <div key={p.id} className={`px-4 py-3 ${!p.is_available ? 'opacity-60' : ''}`}>
+                <div className="flex items-start gap-3">
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 truncate">{p.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {p.categories?.name || '—'}
+                      <span className="mx-1">·</span>
+                      <span className="font-semibold text-coffee-700">฿{Number(p.price).toLocaleString()}</span>
+                    </p>
+                    {/* Size & Ingredient badges */}
+                    <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                      <button onClick={() => openSizeModal(p)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-600">
+                        <Layers size={10} />
+                        {sizeCounts[p.id] ? `${sizeCounts[p.id]} size` : 'ตั้ง size'}
                       </button>
-                      <button onClick={() => deleteProduct(p.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-400">
-                        <Trash2 size={14} />
+                      <button onClick={() => openIngModal(p)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-purple-50 text-purple-600">
+                        <FlaskConical size={10} />
+                        {ingCounts[p.id] ? `${ingCounts[p.id]} ส่วนผสม` : 'ตั้งส่วนผสม'}
                       </button>
                     </div>
-                  </td>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button onClick={() => toggleAvailable(p)} title={p.is_available ? 'ปิดการขาย' : 'เปิดการขาย'}
+                      className="p-1.5 rounded-lg">
+                      {p.is_available
+                        ? <ToggleRight size={22} className="text-green-500" />
+                        : <ToggleLeft  size={22} className="text-gray-300" />}
+                    </button>
+                    <button onClick={() => openEdit(p)} title="แก้ไข"
+                      className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-50">
+                      <Pencil size={15} />
+                    </button>
+                    <button onClick={() => deleteProduct(p.id)} title="ลบ"
+                      className="p-1.5 rounded-lg text-red-400 hover:bg-red-50">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ───── Desktop: Table (sm+) ───── */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="text-left px-4 py-3 text-gray-600 font-semibold">ชื่อสินค้า</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-semibold hidden md:table-cell">หมวดหมู่</th>
+                  <th className="text-right px-4 py-3 text-gray-600 font-semibold">ราคาเริ่มต้น</th>
+                  <th className="text-center px-4 py-3 text-gray-600 font-semibold">Size</th>
+                  <th className="text-center px-4 py-3 text-gray-600 font-semibold hidden lg:table-cell">ส่วนผสม</th>
+                  <th className="text-center px-4 py-3 text-gray-600 font-semibold">สถานะ</th>
+                  <th className="text-center px-4 py-3 text-gray-600 font-semibold">จัดการ</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map(p => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-800">{p.name}</p>
+                      {p.description && <p className="text-xs text-gray-400 truncate max-w-xs">{p.description}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{p.categories?.name || '—'}</td>
+                    <td className="px-4 py-3 text-right font-bold text-coffee-700">฿{Number(p.price).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-center">
+                      <button onClick={() => openSizeModal(p)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium
+                          bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
+                        <Layers size={12} />
+                        {sizeCounts[p.id] ? `${sizeCounts[p.id]} size` : 'ตั้งค่า'}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-center hidden lg:table-cell">
+                      <button onClick={() => openIngModal(p)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium
+                          bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
+                        <FlaskConical size={12} />
+                        {ingCounts[p.id] ? `${ingCounts[p.id]} รายการ` : 'ตั้งค่า'}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button onClick={() => toggleAvailable(p)} className="inline-flex items-center gap-1 text-xs">
+                        {p.is_available
+                          ? <><ToggleRight size={20} className="text-green-500" /><span className="text-green-600">พร้อมขาย</span></>
+                          : <><ToggleLeft  size={20} className="text-gray-300" /><span className="text-gray-400">ปิด</span></>}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-500">
+                          <Pencil size={14} />
+                        </button>
+                        <button onClick={() => deleteProduct(p.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-400">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <p className="text-center py-10 text-gray-400 text-sm">ไม่มีสินค้า</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -272,7 +329,6 @@ export default function MenuAdmin() {
               <button onClick={() => { setSizeModal(null); fetchAll() }}><X size={20} className="text-gray-400" /></button>
             </div>
 
-            {/* รายการ sizes */}
             <div className="px-5 py-4 space-y-2 max-h-64 overflow-y-auto">
               {productSizes(sizeModal.id).length === 0 ? (
                 <p className="text-center text-gray-400 text-sm py-4">ยังไม่มี Size — เพิ่มด้านล่าง</p>
@@ -287,7 +343,6 @@ export default function MenuAdmin() {
               ))}
             </div>
 
-            {/* เพิ่ม size ใหม่ */}
             <div className="px-5 pb-5 border-t border-gray-100 pt-4">
               <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">เพิ่ม Size ใหม่</p>
               <div className="flex gap-2">
@@ -329,7 +384,6 @@ export default function MenuAdmin() {
               <button onClick={() => { setIngModal(null); fetchAll() }}><X size={20} className="text-gray-400" /></button>
             </div>
 
-            {/* Tabs: ทั่วไป / แต่ละ Size */}
             {pSizes.length > 0 && (
               <div className="flex gap-1 px-5 pt-3 overflow-x-auto">
                 <button onClick={() => setIngSizeFilter('all')}
@@ -349,7 +403,6 @@ export default function MenuAdmin() {
               </div>
             )}
 
-            {/* รายการส่วนผสม */}
             <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
               {filteredIngredients.length === 0 ? (
                 <p className="text-center text-gray-400 text-sm py-6">ยังไม่มีส่วนผสม</p>
@@ -377,7 +430,6 @@ export default function MenuAdmin() {
                 </div>
               ))}
 
-              {/* ต้นทุนโดยประมาณ */}
               {filteredIngredients.length > 0 && costForFilter > 0 && (
                 <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-700">
                   💰 ต้นทุนวัตถุดิบ
@@ -388,7 +440,6 @@ export default function MenuAdmin() {
               )}
             </div>
 
-            {/* เพิ่มส่วนผสม */}
             <div className="px-5 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl space-y-2">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">เพิ่มส่วนผสม</p>
               <div className="flex gap-2">
@@ -399,7 +450,6 @@ export default function MenuAdmin() {
                   {inventory.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
                 </select>
 
-                {/* เลือก Size (ถ้ามี) */}
                 {pSizes.length > 0 && (
                   <select className="w-24 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
                     value={newIng.size_id}
