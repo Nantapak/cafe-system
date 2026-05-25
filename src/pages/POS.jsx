@@ -575,7 +575,7 @@ export default function POS() {
           </div>
 
           <CartItems />
-          <CustomerSection />
+          {CustomerSection()}
 
           <div className="px-4 py-3 border-t border-gray-100 space-y-2">
             {redeemDiscount > 0 && (
@@ -649,7 +649,7 @@ export default function POS() {
             </div>
 
             <CartItems />
-            <CustomerSection />
+            {CustomerSection()}
 
             <div className="px-4 pt-3 pb-4 border-t border-gray-100 space-y-2 bg-white shrink-0"
                  style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}>
