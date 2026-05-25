@@ -191,12 +191,47 @@ export default function Orders() {
 
   const cancelOrder = async (id) => {
     if (!confirm('ยืนยันการยกเลิกออเดอร์?')) return
+
+    // ดึงข้อมูลออเดอร์ก่อนยกเลิก เพื่อคืนแต้มสมาชิก
+    const { data: order } = await supabase
+      .from('orders')
+      .select('customer_id, points_earned, points_redeemed, order_number')
+      .eq('id', id).single()
+
     await supabase.from('orders').update({
       status:            'cancelled',
       handled_by_id:     user?.id || null,
       handled_by_name:   handlerName,
       cancelled_by_name: handlerName,
     }).eq('id', id)
+
+    // คืนแต้มให้สมาชิก (ถ้ามี)
+    if (order?.customer_id && (order.points_earned > 0 || order.points_redeemed > 0)) {
+      const { data: cust } = await supabase
+        .from('customers').select('points, total_cups').eq('id', order.customer_id).single()
+      if (cust) {
+        // ยกเลิก: ลบแต้มที่ได้รับ + คืนแต้มที่ใช้แลก
+        const pointsBack  = order.points_redeemed || 0   // คืนแต้มที่แลกไป
+        const pointsTaken = order.points_earned   || 0   // เอาแต้มที่ได้รับคืน
+        const cupsBack    = pointsTaken                  // คืนจำนวนแก้ว
+        const newPoints   = Math.max(0, cust.points - pointsTaken + pointsBack)
+        const newCups     = Math.max(0, cust.total_cups - cupsBack)
+
+        await supabase.from('customers').update({
+          points:     newPoints,
+          total_cups: newCups,
+        }).eq('id', order.customer_id)
+
+        await supabase.from('point_transactions').insert({
+          customer_id:   order.customer_id,
+          order_id:      id,
+          points_change: pointsBack - pointsTaken,
+          type:          'adjust',
+          note:          `ยกเลิกออเดอร์ #${order.order_number} (คืนแต้ม)`,
+        })
+      }
+    }
+
     fetchOrders({ silent: true })
   }
 
