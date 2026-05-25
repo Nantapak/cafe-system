@@ -235,6 +235,24 @@ export default function Orders() {
     fetchOrders({ silent: true })
   }
 
+  /* ── ปริ้นใบเสร็จพร้อมข้อมูลสมาชิก (ถ้ามี) ── */
+  const handlePrint = async (order) => {
+    let memberInfo = null
+    if (order.customer_id) {
+      const { data: cust } = await supabase
+        .from('customers').select('id, points').eq('id', order.customer_id).single()
+      if (cust) {
+        memberInfo = {
+          id:           cust.id,
+          points:       cust.points,
+          pointsEarned: order.points_earned   || 0,
+          pointsUsed:   order.points_redeemed || 0,
+        }
+      }
+    }
+    printReceipt(order, order.order_items || [], memberInfo)
+  }
+
   const fmtDate = (d) => new Date(d).toLocaleString('th-TH', {
     day: '2-digit', month: '2-digit', year: '2-digit',
     hour: '2-digit', minute: '2-digit',
@@ -363,7 +381,7 @@ export default function Orders() {
                         </button>
                       )}
                       <button
-                        onClick={() => printReceipt(order, order.order_items || [])}
+                        onClick={() => handlePrint(order)}
                         className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
                                    bg-coffee-50 text-coffee-700 border border-coffee-200 hover:bg-coffee-100 transition-colors"
                       >

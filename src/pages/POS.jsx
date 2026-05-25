@@ -34,10 +34,11 @@ export default function POS() {
   const [costInfo,   setCostInfo]   = useState({ perCup: null, breakdown: [] })
 
   /* ── สมาชิก ── */
-  const [customer,     setCustomer]     = useState(null)   // ข้อมูลสมาชิกที่ค้นพบ
-  const [custPhone,    setCustPhone]    = useState('')      // เบอร์โทรที่พิมพ์
-  const [custLoading,  setCustLoading]  = useState(false)
-  const [pointsRedeem, setPointsRedeem] = useState(false)  // ต้องการแลกแต้มไหม
+  const [customer,      setCustomer]      = useState(null)
+  const [custPhone,     setCustPhone]     = useState('')
+  const [custLoading,   setCustLoading]   = useState(false)
+  const [pointsRedeem,  setPointsRedeem]  = useState(false)
+  const [suggestions,   setSuggestions]   = useState([])   // autocomplete list
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -75,24 +76,40 @@ export default function POS() {
   const redeemDiscount = (pointsRedeem && customer?.points >= 10) ? cheapestPrice : 0
   const orderTotal     = Math.max(0, total - redeemDiscount)
 
-  /* ── ค้นหาสมาชิกจากเบอร์โทร ── */
+  /* ── ค้นหาสมาชิก: พิมพ์แล้วเด้ง autocomplete ── */
+  const onPhoneChange = async (val) => {
+    setCustPhone(val)
+    const digits = val.replace(/\D/g, '')
+    if (digits.length < 3) { setSuggestions([]); return }
+    const { data } = await supabase
+      .from('customers')
+      .select('id, name, phone, points')
+      .ilike('phone', `%${digits}%`)
+      .limit(5)
+    setSuggestions(data || [])
+  }
+
+  const selectSuggestion = (cust) => {
+    setCustomer(cust)
+    setCustPhone(cust.phone)
+    setSuggestions([])
+    setPointsRedeem(false)
+  }
+
   const searchCustomer = async () => {
     const phone = custPhone.trim().replace(/\D/g, '')
     if (!phone) return
+    setSuggestions([])
     setCustLoading(true)
     const { data } = await supabase
       .from('customers').select('*').eq('phone', phone).single()
     setCustLoading(false)
-    if (data) {
-      setCustomer(data)
-      setPointsRedeem(false)
-    } else {
-      alert('ไม่พบสมาชิกเบอร์นี้ในระบบ')
-    }
+    if (data) { setCustomer(data); setPointsRedeem(false) }
+    else alert('ไม่พบสมาชิกเบอร์นี้ในระบบ')
   }
 
   const clearCustomer = () => {
-    setCustomer(null); setCustPhone(''); setPointsRedeem(false)
+    setCustomer(null); setCustPhone(''); setPointsRedeem(false); setSuggestions([])
   }
 
   /* ── Customize modal ── */
@@ -321,26 +338,49 @@ export default function POS() {
       </p>
 
       {!customer ? (
-        /* ค้นหาสมาชิก */
-        <div className="flex gap-2">
-          <div className="flex-1 flex items-center gap-1.5 bg-white border border-amber-200 rounded-lg px-2.5 py-1.5">
-            <Phone size={13} className="text-gray-400 shrink-0" />
-            <input
-              type="tel"
-              placeholder="เบอร์โทร..."
-              value={custPhone}
-              onChange={e => setCustPhone(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && searchCustomer()}
-              className="flex-1 text-sm outline-none bg-transparent"
-            />
+        /* ค้นหาสมาชิก + autocomplete */
+        <div className="relative">
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center gap-1.5 bg-white border border-amber-200 rounded-lg px-2.5 py-1.5">
+              <Phone size={13} className="text-gray-400 shrink-0" />
+              <input
+                type="tel"
+                placeholder="เบอร์โทร..."
+                value={custPhone}
+                onChange={e => onPhoneChange(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') searchCustomer() }}
+                className="flex-1 text-sm outline-none bg-transparent"
+              />
+            </div>
+            <button
+              onClick={searchCustomer}
+              disabled={custLoading || !custPhone.trim()}
+              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
+            >
+              {custLoading ? '...' : 'ค้นหา'}
+            </button>
           </div>
-          <button
-            onClick={searchCustomer}
-            disabled={custLoading || !custPhone.trim()}
-            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
-          >
-            {custLoading ? '...' : 'ค้นหา'}
-          </button>
+
+          {/* Autocomplete dropdown */}
+          {suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-amber-200 rounded-xl shadow-lg z-50 overflow-hidden">
+              {suggestions.map(s => (
+                <button
+                  key={s.id}
+                  onMouseDown={() => selectSuggestion(s)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-amber-50 transition-colors text-left"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{s.phone}</p>
+                    <p className="text-xs text-gray-400">{'*'.repeat(s.name.length - 1) + s.name.slice(-1)}</p>
+                  </div>
+                  <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+                    ⭐ {s.points}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         /* แสดงข้อมูลสมาชิก */
