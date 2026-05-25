@@ -378,9 +378,15 @@ export default function POS() {
             const cartQty = cart.filter(i => i.id === p.id).reduce((s, i) => s + i.qty, 0)
             return (
               <button key={p.id} onClick={() => openCustomize(p)}
-                className="card p-4 text-left hover:shadow-md hover:border-coffee-300 transition-all active:scale-95"
+                className="card p-3 text-left hover:shadow-md hover:border-coffee-300 transition-all active:scale-95"
               >
-                <div className="text-3xl mb-2">{EMOJI(p.categories?.name)}</div>
+                {/* รูปภาพสินค้า */}
+                <div className="w-full aspect-square rounded-lg overflow-hidden bg-gray-100 mb-2 flex items-center justify-center">
+                  {p.image_url
+                    ? <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
+                    : <span className="text-3xl">{EMOJI(p.categories?.name)}</span>
+                  }
+                </div>
                 <p className="font-semibold text-gray-800 text-sm leading-tight">{p.name}</p>
                 {sizes.length > 0 ? (
                   <div className="flex gap-1 mt-1.5 flex-wrap">

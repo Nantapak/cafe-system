@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Pencil, Trash2, X, Check, ToggleLeft, ToggleRight, FlaskConical, Layers } from 'lucide-react'
+import { resizeImage, uploadMenuImage, deleteMenuImage } from '../lib/imageUtils'
+import { Plus, Pencil, Trash2, X, Check, ToggleLeft, ToggleRight, FlaskConical, Layers, Upload, ImageOff } from 'lucide-react'
 
 const EMPTY_FORM = { name: '', description: '', price: '', category_id: '', is_available: true, image_url: '' }
 
@@ -30,6 +31,11 @@ export default function MenuAdmin() {
   const [ingCounts,   setIngCounts]   = useState({})
   const [sizeCounts,  setSizeCounts]  = useState({})
   const [costMap,     setCostMap]     = useState({})   // productId → ต้นทุนฐาน (general ings)
+
+  // --- Image upload ---
+  const [uploading,   setUploading]   = useState(false)
+  const [previewUrl,  setPreviewUrl]  = useState(null)  // local preview ก่อน upload
+  const fileInputRef  = useRef(null)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -72,11 +78,52 @@ export default function MenuAdmin() {
   }, [products])
 
   // ---- Product CRUD ----
-  const openNew  = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true) }
+  const openNew  = () => { setForm(EMPTY_FORM); setEditId(null); setPreviewUrl(null); setShowModal(true) }
   const openEdit = (p) => {
     setForm({ name: p.name, description: p.description || '', price: String(p.price),
       category_id: p.category_id || '', is_available: p.is_available, image_url: p.image_url || '' })
+    setPreviewUrl(null)
     setEditId(p.id); setShowModal(true)
+  }
+
+  /* ── Image upload handler ── */
+  const handleImageFile = async (file) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) return alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น')
+
+    // แสดง preview ทันที (ก่อน upload)
+    const localUrl = URL.createObjectURL(file)
+    setPreviewUrl(localUrl)
+
+    try {
+      setUploading(true)
+      // 1. Resize ด้วย Canvas (ไม่ว่าจะใหญ่แค่ไหนก็ resize เป็น max 600px)
+      const blob = await resizeImage(file)
+      // 2. Upload ขึ้น Supabase Storage
+      const publicUrl = await uploadMenuImage(supabase, blob, file.name)
+      // 3. ถ้ามีรูปเก่า → ลบออก
+      if (form.image_url) await deleteMenuImage(supabase, form.image_url)
+      // 4. บันทึก URL ใหม่ลงใน form
+      setForm(f => ({ ...f, image_url: publicUrl }))
+    } catch (err) {
+      alert('อัปโหลดรูปไม่สำเร็จ: ' + err.message)
+      setPreviewUrl(null)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) handleImageFile(file)
+  }
+
+  const removeImage = async () => {
+    if (form.image_url) await deleteMenuImage(supabase, form.image_url)
+    setForm(f => ({ ...f, image_url: '' }))
+    setPreviewUrl(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
   const saveProduct = async () => {
     if (!form.name || !form.price) return alert('กรุณากรอกชื่อและราคา')
@@ -212,6 +259,13 @@ export default function MenuAdmin() {
             {filtered.map(p => (
               <div key={p.id} className={`px-4 py-3 ${!p.is_available ? 'opacity-60' : ''}`}>
                 <div className="flex items-start gap-3">
+                  {/* รูปภาพ */}
+                  <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100 flex items-center justify-center">
+                    {p.image_url
+                      ? <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                      : <ImageOff size={16} className="text-gray-300" />
+                    }
+                  </div>
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 truncate">{p.name}</p>
@@ -262,6 +316,7 @@ export default function MenuAdmin() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
+                  <th className="px-4 py-3 w-14"></th>
                   <th className="text-left px-4 py-3 text-gray-600 font-semibold">ชื่อสินค้า</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-semibold hidden md:table-cell">หมวดหมู่</th>
                   <th className="text-right px-4 py-3 text-gray-600 font-semibold">ราคาเริ่มต้น</th>
@@ -274,6 +329,14 @@ export default function MenuAdmin() {
               <tbody className="divide-y divide-gray-50">
                 {filtered.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                        {p.image_url
+                          ? <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                          : <ImageOff size={14} className="text-gray-300" />
+                        }
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-800">{p.name}</p>
                       {p.description && <p className="text-xs text-gray-400 truncate max-w-xs">{p.description}</p>}
@@ -546,9 +609,67 @@ export default function MenuAdmin() {
                   </select>
                 </div>
               </div>
+              {/* ── Image Upload ── */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">URL รูปภาพ</label>
-                <input className="input" value={form.image_url} onChange={e => setForm(f => ({...f, image_url: e.target.value}))} placeholder="https://..." />
+                <label className="block text-xs font-medium text-gray-600 mb-1">รูปภาพเมนู</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => handleImageFile(e.target.files[0])}
+                />
+                {(previewUrl || form.image_url) ? (
+                  /* แสดง preview รูปที่เลือก */
+                  <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                    <img
+                      src={previewUrl || form.image_url}
+                      alt="preview"
+                      className="w-full h-full object-cover"
+                    />
+                    {uploading && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <div className="text-white text-sm font-medium animate-pulse">กำลังอัปโหลด...</div>
+                      </div>
+                    )}
+                    <div className="absolute top-2 right-2 flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="px-2.5 py-1.5 bg-white/90 hover:bg-white text-gray-700 text-xs font-medium rounded-lg shadow-sm flex items-center gap-1 transition-colors"
+                      >
+                        <Upload size={12} /> เปลี่ยนรูป
+                      </button>
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        disabled={uploading}
+                        className="p-1.5 bg-red-500/90 hover:bg-red-500 text-white rounded-lg shadow-sm transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Drop zone */
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={e => e.preventDefault()}
+                    className="w-full aspect-video rounded-xl border-2 border-dashed border-gray-300 hover:border-coffee-400
+                               bg-gray-50 hover:bg-coffee-50 flex flex-col items-center justify-center gap-2
+                               cursor-pointer transition-colors group"
+                  >
+                    <div className="p-3 rounded-full bg-gray-100 group-hover:bg-coffee-100 transition-colors">
+                      <Upload size={22} className="text-gray-400 group-hover:text-coffee-500" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-gray-600">คลิกหรือลากรูปมาวางที่นี่</p>
+                      <p className="text-xs text-gray-400 mt-0.5">อัปโหลดขนาดเท่าไหร่ก็ได้ — ระบบ resize ให้อัตโนมัติ</p>
+                    </div>
+                  </div>
+                )}
               </div>
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={form.is_available} onChange={e => setForm(f => ({...f, is_available: e.target.checked}))} className="rounded" />
