@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ShoppingCart, ClipboardList, Coffee, Package, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, ShoppingCart, ClipboardList, Package, BarChart2, Star } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -8,7 +8,7 @@ const ALL_NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'แดชบอร์ด', roles: ['admin'] },
   { to: '/pos',       icon: ShoppingCart,    label: 'POS',       roles: ['admin', 'cashier'] },
   { to: '/orders',    icon: ClipboardList,   label: 'ออเดอร์',   roles: ['admin', 'cashier', 'barista'] },
-  { to: '/menu',      icon: Coffee,          label: 'เมนู',      roles: ['admin'] },
+  { to: '/customers', icon: Star,            label: 'สมาชิก',    roles: ['admin', 'cashier'] },
   { to: '/inventory', icon: Package,         label: 'สต็อก',     roles: ['admin'], lowStock: true },
   { to: '/reports',   icon: BarChart2,       label: 'รายงาน',    roles: ['admin'] },
 ]

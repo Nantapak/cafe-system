@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, ShoppingCart, ClipboardList,
-  Coffee, Package, Users, LogOut, BarChart2,
+  Coffee, Package, Users, LogOut, BarChart2, Star,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -11,6 +11,7 @@ const ALL_NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'แดชบอร์ด',       roles: ['admin'] },
   { to: '/pos',       icon: ShoppingCart,    label: 'POS / แคชเชียร์', roles: ['admin', 'cashier'] },
   { to: '/orders',    icon: ClipboardList,   label: 'ออเดอร์',          roles: ['admin', 'cashier', 'barista'] },
+  { to: '/customers', icon: Star,            label: 'สมาชิก',           roles: ['admin', 'cashier'] },
   { to: '/menu',      icon: Coffee,          label: 'จัดการเมนู',       roles: ['admin'] },
   { to: '/inventory', icon: Package,         label: 'สต็อกวัตถุดิบ',    roles: ['admin'], lowStock: true },
   { to: '/staff',     icon: Users,           label: 'จัดการพนักงาน',    roles: ['admin'] },
@@ -34,7 +35,7 @@ export default function Sidebar() {
   const [lowStockCount, setLowStockCount] = useState(0)
 
   useEffect(() => {
-    if (role !== 'admin') return   // เฉพาะ admin ถึงดู inventory
+    if (role !== 'admin') return
 
     const fetchLowStock = async () => {
       const { data } = await supabase
@@ -47,7 +48,6 @@ export default function Sidebar() {
 
     fetchLowStock()
 
-    // Realtime: อัปเดต badge เมื่อสต็อกเปลี่ยน
     const ch = supabase.channel('sidebar-inventory')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, fetchLowStock)
       .subscribe()
@@ -86,7 +86,6 @@ export default function Sidebar() {
           >
             <div className="relative shrink-0">
               <Icon size={18} />
-              {/* Badge แจ้งเตือนสต็อกต่ำ */}
               {lowStock && lowStockCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full
                                  text-[9px] font-bold text-white flex items-center justify-center">
@@ -95,7 +94,6 @@ export default function Sidebar() {
               )}
             </div>
             <span className="hidden lg:block">{label}</span>
-            {/* Badge แบบ inline บน desktop */}
             {lowStock && lowStockCount > 0 && (
               <span className="hidden lg:flex ml-auto items-center justify-center
                                min-w-5 h-5 bg-red-500 rounded-full

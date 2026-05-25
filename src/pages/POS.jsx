@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   ShoppingCart, Plus, Minus, Trash2,
   CheckCircle, RotateCcw, X, Printer,
+  UserCircle2, Phone, Star, Gift,
 } from 'lucide-react'
 
 const SUGAR_OPTIONS = ['ไม่หวาน', 'หวาน 50%', 'หวานน้อย', 'หวานปกติ', 'เพิ่มหวาน']
@@ -31,6 +32,12 @@ export default function POS() {
   const [customize,  setCustomize]  = useState(null)
   const [cartOpen,   setCartOpen]   = useState(false)
   const [costInfo,   setCostInfo]   = useState({ perCup: null, breakdown: [] })
+
+  /* ── สมาชิก ── */
+  const [customer,     setCustomer]     = useState(null)   // ข้อมูลสมาชิกที่ค้นพบ
+  const [custPhone,    setCustPhone]    = useState('')      // เบอร์โทรที่พิมพ์
+  const [custLoading,  setCustLoading]  = useState(false)
+  const [pointsRedeem, setPointsRedeem] = useState(false)  // ต้องการแลกแต้มไหม
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -61,8 +68,32 @@ export default function POS() {
         : i
     ))
 
-  const total      = cart.reduce((s, i) => s + i.price * i.qty, 0)
-  const totalItems = cart.reduce((s, i) => s + i.qty, 0)
+  const total          = cart.reduce((s, i) => s + i.price * i.qty, 0)
+  const totalItems     = cart.reduce((s, i) => s + i.qty, 0)
+  const cupsInOrder    = cart.reduce((s, i) => s + i.qty, 0)
+  const cheapestPrice  = cart.length ? Math.min(...cart.map(i => i.price)) : 0
+  const redeemDiscount = (pointsRedeem && customer?.points >= 10) ? cheapestPrice : 0
+  const orderTotal     = Math.max(0, total - redeemDiscount)
+
+  /* ── ค้นหาสมาชิกจากเบอร์โทร ── */
+  const searchCustomer = async () => {
+    const phone = custPhone.trim().replace(/\D/g, '')
+    if (!phone) return
+    setCustLoading(true)
+    const { data } = await supabase
+      .from('customers').select('*').eq('phone', phone).single()
+    setCustLoading(false)
+    if (data) {
+      setCustomer(data)
+      setPointsRedeem(false)
+    } else {
+      alert('ไม่พบสมาชิกเบอร์นี้ในระบบ')
+    }
+  }
+
+  const clearCustomer = () => {
+    setCustomer(null); setCustPhone(''); setPointsRedeem(false)
+  }
 
   /* ── Customize modal ── */
   const openCustomize = (product) => {
@@ -163,10 +194,14 @@ export default function POS() {
       const { data: order, error: oErr } = await supabase
         .from('orders')
         .insert({
-          total,
-          status:       'pending',
-          cashier_id:   user?.id   || null,
-          cashier_name: cashierName,
+          total:            orderTotal,
+          discount:         redeemDiscount,
+          status:           'pending',
+          cashier_id:       user?.id || null,
+          cashier_name:     cashierName,
+          customer_id:      customer?.id || null,
+          points_earned:    customer ? cupsInOrder : 0,
+          points_redeemed:  customer && pointsRedeem ? 10 : 0,
         })
         .select().single()
       if (oErr) throw oErr
@@ -226,6 +261,24 @@ export default function POS() {
         }
       }
 
+      // อัปเดตแต้มสมาชิก
+      if (customer) {
+        const pointsUsed   = pointsRedeem ? 10 : 0
+        const newPoints    = Math.max(0, customer.points + cupsInOrder - pointsUsed)
+        await supabase.from('customers').update({
+          points:     newPoints,
+          total_cups: customer.total_cups + cupsInOrder,
+        }).eq('id', customer.id)
+
+        await supabase.from('point_transactions').insert({
+          customer_id:   customer.id,
+          order_id:      order.id,
+          points_change: cupsInOrder - pointsUsed,
+          type:          pointsUsed > 0 ? 'redeem' : 'earn',
+          note: `ออเดอร์ #${order.order_number} (+${cupsInOrder} แต้ม${pointsUsed > 0 ? ` แลก -${pointsUsed} แต้ม` : ''})`,
+        })
+      }
+
       // ปริ้นอัตโนมัติ
       const printItems = cart.map(i => ({
         name:      i.name,
@@ -234,11 +287,13 @@ export default function POS() {
         quantity:  i.qty,
         price:     i.price,
       }))
-      setLastOrder({ order, items: printItems })
-      printReceipt(order, printItems)
+      const orderForPrint = { ...order, total: orderTotal }
+      setLastOrder({ order: orderForPrint, items: printItems })
+      printReceipt(orderForPrint, printItems)
 
-      setSuccess(`ออเดอร์ #${order.order_number} สำเร็จ! ยอด ฿${total.toLocaleString()}`)
+      setSuccess(`ออเดอร์ #${order.order_number} สำเร็จ! ยอด ฿${orderTotal.toLocaleString()}`)
       clearCart()
+      clearCustomer()
     } catch (e) {
       alert('เกิดข้อผิดพลาด: ' + e.message)
     } finally {
@@ -251,6 +306,93 @@ export default function POS() {
     await submitOrder()
     setCartOpen(false)
   }
+
+  /* ── CustomerSection ── */
+  const CustomerSection = () => (
+    <div className="px-4 py-3 border-t border-gray-100 bg-amber-50/60">
+      <p className="text-xs font-semibold text-amber-800 mb-2 flex items-center gap-1">
+        <Star size={12} className="text-amber-500" /> สมาชิก
+      </p>
+
+      {!customer ? (
+        /* ค้นหาสมาชิก */
+        <div className="flex gap-2">
+          <div className="flex-1 flex items-center gap-1.5 bg-white border border-amber-200 rounded-lg px-2.5 py-1.5">
+            <Phone size={13} className="text-gray-400 shrink-0" />
+            <input
+              type="tel"
+              placeholder="เบอร์โทร..."
+              value={custPhone}
+              onChange={e => setCustPhone(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && searchCustomer()}
+              className="flex-1 text-sm outline-none bg-transparent"
+            />
+          </div>
+          <button
+            onClick={searchCustomer}
+            disabled={custLoading || !custPhone.trim()}
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors"
+          >
+            {custLoading ? '...' : 'ค้นหา'}
+          </button>
+        </div>
+      ) : (
+        /* แสดงข้อมูลสมาชิก */
+        <div className="bg-white rounded-xl p-2.5 border border-amber-200 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserCircle2 size={20} className="text-amber-500" />
+              <div>
+                <p className="text-sm font-bold text-gray-800">{customer.name}</p>
+                <p className="text-xs text-gray-400">{customer.phone}</p>
+              </div>
+            </div>
+            <button onClick={clearCustomer} className="text-gray-300 hover:text-gray-500">
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* แต้มปัจจุบัน */}
+          <div className="flex items-center justify-between bg-amber-50 rounded-lg px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5">
+              <Star size={13} className="text-amber-400" />
+              <span className="text-xs text-gray-600">แต้มสะสม</span>
+            </div>
+            <div className="text-right">
+              <span className="text-base font-bold text-amber-600">{customer.points}</span>
+              <span className="text-xs text-gray-400 ml-1">/ 10</span>
+            </div>
+          </div>
+
+          {/* แต้มที่จะได้จากออเดอร์นี้ */}
+          {cupsInOrder > 0 && (
+            <p className="text-xs text-center text-gray-400">
+              ออเดอร์นี้: +{cupsInOrder} แต้ม
+              → เหลือ {Math.max(0, customer.points + cupsInOrder - (pointsRedeem ? 10 : 0))} แต้ม
+            </p>
+          )}
+
+          {/* ปุ่มแลกแต้ม */}
+          {customer.points >= 10 && cart.length > 0 && (
+            <button
+              onClick={() => setPointsRedeem(r => !r)}
+              className={`w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors
+                ${pointsRedeem
+                  ? 'bg-green-500 text-white'
+                  : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                }`}
+            >
+              <Gift size={13} />
+              {pointsRedeem
+                ? `✓ แลก 10 แต้ม — ลด ฿${cheapestPrice.toLocaleString()}`
+                : `แลก 10 แต้ม รับ 1 แก้วฟรี`
+              }
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-coffee-600 text-lg">กำลังโหลด... ☕</div>
@@ -433,11 +575,23 @@ export default function POS() {
           </div>
 
           <CartItems />
+          <CustomerSection />
 
-          <div className="px-4 py-3 border-t border-gray-100 space-y-3">
+          <div className="px-4 py-3 border-t border-gray-100 space-y-2">
+            {redeemDiscount > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-green-600">ส่วนลดแต้ม 🎁</span>
+                <span className="font-semibold text-green-600">-฿{redeemDiscount.toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <span className="text-gray-600 font-medium">รวมทั้งหมด</span>
-              <span className="text-xl font-bold text-coffee-700">฿{total.toLocaleString()}</span>
+              <div className="text-right">
+                {redeemDiscount > 0 && (
+                  <p className="text-xs text-gray-400 line-through">฿{total.toLocaleString()}</p>
+                )}
+                <span className="text-xl font-bold text-coffee-700">฿{orderTotal.toLocaleString()}</span>
+              </div>
             </div>
             <button onClick={submitOrder} disabled={!cart.length || submitting}
               className="btn-primary w-full text-base py-3 flex items-center justify-center gap-2 disabled:opacity-50">
@@ -495,12 +649,24 @@ export default function POS() {
             </div>
 
             <CartItems />
+            <CustomerSection />
 
-            <div className="px-4 pt-4 pb-4 border-t border-gray-100 space-y-3 bg-white shrink-0"
+            <div className="px-4 pt-3 pb-4 border-t border-gray-100 space-y-2 bg-white shrink-0"
                  style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}>
+              {redeemDiscount > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-green-600">ส่วนลดแต้ม 🎁</span>
+                  <span className="font-semibold text-green-600">-฿{redeemDiscount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 font-medium">รวมทั้งหมด</span>
-                <span className="text-2xl font-bold text-coffee-700">฿{total.toLocaleString()}</span>
+                <div className="text-right">
+                  {redeemDiscount > 0 && (
+                    <p className="text-xs text-gray-400 line-through">฿{total.toLocaleString()}</p>
+                  )}
+                  <span className="text-2xl font-bold text-coffee-700">฿{orderTotal.toLocaleString()}</span>
+                </div>
               </div>
               <button
                 onClick={submitAndClose}

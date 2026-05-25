@@ -9,6 +9,7 @@ import MenuAdmin from './pages/MenuAdmin'
 import Inventory from './pages/Inventory'
 import Staff       from './pages/Staff'
 import SalesReport from './pages/SalesReport'
+import Customers   from './pages/Customers'
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, role } = useAuth()
@@ -98,6 +99,12 @@ export default function App() {
           <Route path="reports" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <SalesReport />
+            </ProtectedRoute>
+          } />
+
+          <Route path="customers" element={
+            <ProtectedRoute allowedRoles={['admin', 'cashier']}>
+              <Customers />
             </ProtectedRoute>
           } />
         </Route>
