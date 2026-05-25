@@ -27,7 +27,20 @@ function fmtMoney(n) {
 /* ═══════════════════════════════════════════════════
    ใบเสร็จ + คิว รวมแผ่นเดียว
 ═══════════════════════════════════════════════════ */
-export function printReceipt(order, items) {
+/**
+ * แปลง UUID เป็นรหัสสมาชิกสั้น เช่น MBR-A1B2C3D4
+ * ไม่เปิดเผยชื่อจริง แต่ unique ต่อสมาชิก
+ */
+function memberCode(id) {
+  return 'MBR-' + id.replace(/-/g, '').slice(0, 8).toUpperCase()
+}
+
+/**
+ * @param {object} order
+ * @param {array}  items
+ * @param {object|null} memberInfo — { id, points, pointsEarned, pointsUsed }
+ */
+export function printReceipt(order, items, memberInfo = null) {
   const isCancelled  = order.status === 'cancelled'
 
   /* ── สร้าง QR PromptPay (ถ้ามี VITE_PROMPTPAY_ID) ── */
@@ -134,6 +147,15 @@ export function printReceipt(order, items) {
 
     /* ── ท้าย ── */
     .footer { font-size: 11px; color: #999; margin-top: 5px; }
+
+    /* ── สมาชิก ── */
+    .member-wrap  { margin: 4px 0; padding: 5px 6px; border: 1px dashed #ccc; border-radius: 6px; }
+    .member-id    { font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+    .member-pts   { font-size: 11px; color: #555; margin-top: 2px; }
+    .member-bar-wrap { display: flex; gap: 2px; margin-top: 3px; }
+    .member-bar-cell { flex: 1; height: 5px; border-radius: 2px; }
+    .member-bar-fill { background: #92400e; }
+    .member-bar-empty{ background: #e5e7eb; }
   </style>
 </head>
 <body>
@@ -172,6 +194,31 @@ export function printReceipt(order, items) {
   ${qrBlock}
 
   <hr class="divider" />
+
+  <!-- สมาชิก -->
+  ${memberInfo ? (() => {
+    const code   = memberCode(memberInfo.id)
+    const pts    = memberInfo.points          // แต้มหลังออเดอร์นี้
+    const earned = memberInfo.pointsEarned || 0
+    const used   = memberInfo.pointsUsed   || 0
+    const prog   = pts % 10                   // ความคืบหน้าในรอบ 10 แต้ม
+    const bars   = Array.from({ length: 10 }, (_, i) =>
+      `<div class="member-bar-cell ${i < prog ? 'member-bar-fill' : 'member-bar-empty'}"></div>`
+    ).join('')
+    return `
+      <div class="member-wrap">
+        <div class="row">
+          <span class="member-id">${code}</span>
+          <span class="member-pts" style="font-weight:700">⭐ ${pts} แต้ม</span>
+        </div>
+        <div class="member-bar-wrap">${bars}</div>
+        <div class="member-pts">
+          ออเดอร์นี้ +${earned} แต้ม${used > 0 ? ` / แลก -${used} แต้ม` : ''}
+          · อีก ${10 - prog} แต้มรับฟรี 1 แก้ว
+        </div>
+      </div>
+    `
+  })() : ''}
 
   <!-- ท้าย -->
   <div class="center footer">

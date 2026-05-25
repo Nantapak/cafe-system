@@ -288,8 +288,14 @@ export default function POS() {
         price:     i.price,
       }))
       const orderForPrint = { ...order, total: orderTotal }
+      const memberForPrint = customer ? {
+        id:            customer.id,
+        points:        Math.max(0, customer.points + cupsInOrder - (pointsRedeem ? 10 : 0)),
+        pointsEarned:  cupsInOrder,
+        pointsUsed:    pointsRedeem ? 10 : 0,
+      } : null
       setLastOrder({ order: orderForPrint, items: printItems })
-      printReceipt(orderForPrint, printItems)
+      printReceipt(orderForPrint, printItems, memberForPrint)
 
       setSuccess(`ออเดอร์ #${order.order_number} สำเร็จ! ยอด ฿${orderTotal.toLocaleString()}`)
       clearCart()
