@@ -61,11 +61,11 @@ export default function Sidebar() {
       <div className="flex items-center justify-center lg:justify-start px-3 lg:px-5 py-5 border-b border-coffee-700 min-h-[72px]">
         {/* icon-only บนหน้าจอแคบ */}
         <div className="lg:hidden">
-          <ShopLogo color="white" iconSize={30} showText={false} />
+          <ShopLogo iconSize={30} showText={false} invert={true} />
         </div>
         {/* full logo บน desktop */}
         <div className="hidden lg:block">
-          <ShopLogo color="white" iconSize={32} showText={true}
+          <ShopLogo iconSize={30} showText={true} invert={true}
             textColor="text-white" subColor="text-coffee-300" />
         </div>
       </div>

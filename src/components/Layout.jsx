@@ -24,7 +24,7 @@ export default function Layout() {
       {/* ── Mobile top bar ── */}
       <header className="md:hidden flex items-center justify-between
                          bg-coffee-800 text-white px-4 py-2.5 shrink-0 z-30">
-        <ShopLogo color="white" iconSize={26} showText={true}
+        <ShopLogo iconSize={26} showText={true} invert={true}
           textColor="text-white" subColor="text-coffee-300" />
 
         <div className="flex items-center gap-2.5">

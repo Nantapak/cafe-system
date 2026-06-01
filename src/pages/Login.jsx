@@ -37,14 +37,8 @@ export default function Login() {
 
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
-          <div className="mb-5">
-            <ShopLogo
-              color="#3A2A1C"
-              iconSize={56}
-              showText={false}
-            />
-          </div>
-          <p className="text-3xl font-black text-coffee-800 tracking-tight leading-none">
+          <ShopLogo iconSize={72} showText={false} invert={false} />
+          <p className="text-3xl font-black text-coffee-800 tracking-tight leading-none mt-4">
             5th cup
           </p>
           <p className="text-sm text-coffee-400 mt-1 tracking-widest font-light">
