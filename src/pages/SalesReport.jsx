@@ -6,8 +6,9 @@ import {
 } from 'recharts'
 import {
   TrendingUp, ShoppingBag, Receipt, BarChart2,
-  RefreshCw, ChevronDown, Award, Tag,
+  RefreshCw, ChevronDown, Award, Tag, Download,
 } from 'lucide-react'
+import { exportSalesReport } from '../lib/exportUtils'
 
 /* ── Date helpers ── */
 const pad = n => String(n).padStart(2, '0')
@@ -221,11 +222,20 @@ export default function SalesReport() {
           <h1 className="text-xl font-bold text-gray-800">รายงานยอดขาย</h1>
           <p className="text-xs text-gray-400 mt-0.5">{rangeLabel}</p>
         </div>
-        <button onClick={() => fetchReport({ silent: true })}
-          className="btn-secondary flex items-center gap-2 text-sm py-1.5">
-          <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-          <span className="hidden sm:inline">{syncing ? 'กำลังโหลด...' : 'รีเฟรช'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportSalesReport({ orders, startDate: start, endDate: end, preset })}
+            disabled={loading || !orders.length}
+            className="btn-secondary flex items-center gap-2 text-sm py-1.5 disabled:opacity-40"
+          >
+            <Download size={14} /> Export Excel
+          </button>
+          <button onClick={() => fetchReport({ silent: true })}
+            className="btn-secondary flex items-center gap-2 text-sm py-1.5">
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">{syncing ? 'กำลังโหลด...' : 'รีเฟรช'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Preset tabs */}

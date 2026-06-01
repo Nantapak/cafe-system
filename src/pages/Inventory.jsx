@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Pencil, X, Check, AlertTriangle, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
+import { Plus, Pencil, X, Check, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Download } from 'lucide-react'
+import { exportInventory } from '../lib/exportUtils'
 
 const EMPTY_ITEM = { name: '', unit: 'กรัม', quantity: '', min_quantity: '', cost_per_unit: '' }
 const UNITS = ['กรัม', 'กิโลกรัม', 'มล.', 'ลิตร', 'ชิ้น', 'ถุง', 'กล่อง', 'แพ็ค']
@@ -93,9 +94,18 @@ export default function Inventory() {
     <div className="max-w-5xl">
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-800">สต็อกวัตถุดิบ</h1>
-        <button onClick={openNew} className="btn-primary flex items-center gap-2 text-sm">
-          <Plus size={16} /> เพิ่มวัตถุดิบ
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportInventory(items)}
+            disabled={!items.length}
+            className="btn-secondary flex items-center gap-2 text-sm py-1.5 disabled:opacity-40"
+          >
+            <Download size={14} /> Export Excel
+          </button>
+          <button onClick={openNew} className="btn-primary flex items-center gap-2 text-sm">
+            <Plus size={16} /> เพิ่มวัตถุดิบ
+          </button>
+        </div>
       </div>
 
       {/* Warning */}

@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { printReceipt } from '../lib/printUtils'
 import { useAuth } from '../contexts/AuthContext'
-import { RefreshCw, ChevronDown, Printer, ShoppingCart, ChefHat, Bell, CheckCircle2, XCircle, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { RefreshCw, ChevronDown, Printer, ShoppingCart, ChefHat, Bell, CheckCircle2, XCircle, ChevronLeft, ChevronRight, CalendarDays, Download } from 'lucide-react'
+import { exportOrders } from '../lib/exportUtils'
 
 const STATUS_LABELS = {
   pending:   { label: 'รอดำเนินการ', badge: 'badge-pending',   next: 'preparing', nextLabel: 'เริ่มทำ' },
@@ -303,10 +304,19 @@ export default function Orders() {
             </span>
           )}
         </div>
-        <button onClick={() => fetchOrders()} className="btn-secondary flex items-center gap-2 text-sm py-1.5">
-          <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-          <span className="hidden sm:inline">{syncing ? 'กำลังอัปเดต...' : 'รีเฟรช'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportOrders(orders, selectedDate)}
+            disabled={!orders.length}
+            className="btn-secondary flex items-center gap-2 text-sm py-1.5 disabled:opacity-40"
+          >
+            <Download size={14} /> Export
+          </button>
+          <button onClick={() => fetchOrders()} className="btn-secondary flex items-center gap-2 text-sm py-1.5">
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">{syncing ? 'กำลังอัปเดต...' : 'รีเฟรช'}</span>
+          </button>
+        </div>
       </div>
 
       {/* ── Date navigator ── */}
