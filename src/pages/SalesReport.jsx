@@ -128,6 +128,7 @@ export default function SalesReport() {
   const [syncing,     setSyncing]     = useState(false)
 
   // Processed data
+  const [rawOrders,   setRawOrders]   = useState([])   // เก็บ orders ดิบไว้ export
   const [summary,     setSummary]     = useState({ revenue: 0, orders: 0, avgOrder: 0, cancelled: 0 })
   const [chartData,   setChartData]   = useState([])
   const [topProducts, setTopProducts] = useState([])
@@ -144,7 +145,7 @@ export default function SalesReport() {
 
     const { data: orders } = await supabase
       .from('orders')
-      .select('id, total, status, created_at, cashier_name, order_items(*)')
+      .select('id, total, status, created_at, order_number, cashier_name, order_items(*)')
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
       .order('created_at')
@@ -154,6 +155,7 @@ export default function SalesReport() {
       else         setSyncing(false)
       return
     }
+    setRawOrders(orders)
 
     const completed  = orders.filter(o => o.status !== 'cancelled')
     const cancelled  = orders.filter(o => o.status === 'cancelled')
@@ -224,8 +226,8 @@ export default function SalesReport() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => exportSalesReport({ orders, startDate: start, endDate: end, preset })}
-            disabled={loading || !orders.length}
+            onClick={() => exportSalesReport({ orders: rawOrders, startDate: start, endDate: end })}
+            disabled={loading || !rawOrders.length}
             className="btn-secondary flex items-center gap-2 text-sm py-1.5 disabled:opacity-40"
           >
             <Download size={14} /> Export Excel
