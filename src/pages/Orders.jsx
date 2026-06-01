@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { printReceipt } from '../lib/printUtils'
 import { useAuth } from '../contexts/AuthContext'
-import { RefreshCw, ChevronDown, Printer, ShoppingCart, ChefHat, Bell, CheckCircle2, XCircle } from 'lucide-react'
+import { RefreshCw, ChevronDown, Printer, ShoppingCart, ChefHat, Bell, CheckCircle2, XCircle, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 
 const STATUS_LABELS = {
   pending:   { label: 'รอดำเนินการ', badge: 'badge-pending',   next: 'preparing', nextLabel: 'เริ่มทำ' },
@@ -122,16 +122,28 @@ function OrderTimeline({ order }) {
   )
 }
 
+/* ── helper: YYYY-MM-DD string ── */
+const toDateStr = (d) => d.toISOString().split('T')[0]
+const today     = () => toDateStr(new Date())
+const yesterday = () => { const d = new Date(); d.setDate(d.getDate()-1); return toDateStr(d) }
+const fmtDisplayDate = (str) => new Date(str + 'T12:00:00').toLocaleDateString('th-TH', {
+  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+})
+
 export default function Orders() {
   const { user } = useAuth()
-  const [orders,   setOrders]   = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [syncing,  setSyncing]  = useState(false)
-  const [live,     setLive]     = useState(false)
-  const [filter,   setFilter]   = useState('all')
-  const [expandId, setExpandId] = useState(null)
+  const [orders,      setOrders]      = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [syncing,     setSyncing]     = useState(false)
+  const [live,        setLive]        = useState(false)
+  const [filter,      setFilter]      = useState('all')
+  const [expandId,    setExpandId]    = useState(null)
+  const [selectedDate, setSelectedDate] = useState(today())   // YYYY-MM-DD
+
   const filterRef = useRef(filter)
+  const dateRef   = useRef(selectedDate)
   filterRef.current = filter
+  dateRef.current   = selectedDate
 
   const fetchOrders = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true)
@@ -140,8 +152,8 @@ export default function Orders() {
     let q = supabase
       .from('orders')
       .select('*, order_items(*)')
-      .order('created_at', { ascending: false })
-      .limit(100)
+      .eq('order_date', dateRef.current)
+      .order('order_number', { ascending: true })
     if (filterRef.current !== 'all') q = q.eq('status', filterRef.current)
     const { data } = await q
     setOrders(data || [])
@@ -154,6 +166,19 @@ export default function Orders() {
     filterRef.current = filter
     fetchOrders()
   }, [filter, fetchOrders])
+
+  useEffect(() => {
+    dateRef.current = selectedDate
+    fetchOrders()
+  }, [selectedDate, fetchOrders])
+
+  /* เลื่อนวัน */
+  const shiftDate = (delta) => {
+    const d = new Date(selectedDate + 'T12:00:00')
+    d.setDate(d.getDate() + delta)
+    setSelectedDate(toDateStr(d))
+  }
+  const isToday = selectedDate === today()
 
   /* ── Realtime ── */
   useEffect(() => {
@@ -265,18 +290,16 @@ export default function Orders() {
 
   return (
     <div className="max-w-5xl">
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-gray-800">รายการออเดอร์</h1>
+          <h1 className="text-xl font-bold text-gray-800">ออเดอร์</h1>
           {live ? (
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-600 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              LIVE
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> LIVE
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 text-xs text-gray-400 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-              กำลังเชื่อมต่อ...
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> กำลังเชื่อมต่อ...
             </span>
           )}
         </div>
@@ -286,8 +309,58 @@ export default function Orders() {
         </button>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+      {/* ── Date navigator ── */}
+      <div className="card px-4 py-3 mb-4 flex items-center gap-3">
+        {/* ลูกศรย้อนหลัง */}
+        <button onClick={() => shiftDate(-1)}
+          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+          <ChevronLeft size={18} />
+        </button>
+
+        {/* วันที่แสดง */}
+        <div className="flex-1 text-center">
+          <div className="flex items-center justify-center gap-2">
+            <CalendarDays size={15} className="text-coffee-500" />
+            <p className="text-sm font-bold text-gray-800">{fmtDisplayDate(selectedDate)}</p>
+            {isToday && (
+              <span className="text-xs bg-coffee-600 text-white px-2 py-0.5 rounded-full font-semibold">วันนี้</span>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {orders.length} ออเดอร์
+            {orders.length > 0 && (
+              <> · ยอดรวม ฿{orders.filter(o => o.status !== 'cancelled').reduce((s,o) => s + Number(o.total), 0).toLocaleString()}</>
+            )}
+          </p>
+        </div>
+
+        {/* ลูกศรไปข้างหน้า (disable ถ้าวันนี้แล้ว) */}
+        <button onClick={() => shiftDate(1)} disabled={isToday}
+          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors disabled:opacity-30">
+          <ChevronRight size={18} />
+        </button>
+
+        {/* ปุ่มวันนี้ + date picker */}
+        <div className="flex items-center gap-1.5 border-l border-gray-100 pl-3">
+          {!isToday && (
+            <button onClick={() => setSelectedDate(today())}
+              className="text-xs px-2.5 py-1.5 bg-coffee-600 text-white rounded-lg font-medium hover:bg-coffee-700 transition-colors">
+              วันนี้
+            </button>
+          )}
+          <input
+            type="date"
+            value={selectedDate}
+            max={today()}
+            onChange={e => e.target.value && setSelectedDate(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600
+                       focus:outline-none focus:ring-2 focus:ring-coffee-600/20 focus:border-coffee-600"
+          />
+        </div>
+      </div>
+
+      {/* ── Status filter tabs ── */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
         {[['all','ทั้งหมด'], ...Object.entries(STATUS_LABELS).map(([k,v]) => [k, v.label])].map(([key, label]) => (
           <button key={key} onClick={() => setFilter(key)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
