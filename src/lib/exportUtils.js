@@ -1,8 +1,7 @@
 /**
  * exportUtils.js
- * Export ข้อมูลเป็น Excel (.xlsx) โดยใช้ SheetJS
+ * Export ข้อมูลเป็น Excel (.xlsx) โดยใช้ SheetJS (dynamic import)
  */
-import * as XLSX from 'xlsx'
 
 /* ── helper ── */
 const fmtDate = (iso) =>
@@ -16,11 +15,12 @@ const fmtDateOnly = (iso) =>
     day: '2-digit', month: '2-digit', year: 'numeric',
   })
 
-function saveWorkbook(wb, filename) {
-  XLSX.writeFile(wb, filename)
+async function getXLSX() {
+  const mod = await import('xlsx')
+  return mod.default ?? mod
 }
 
-function autoWidth(ws, data) {
+function autoWidth(ws, data, XLSX) {
   if (!data.length) return
   const keys = Object.keys(data[0])
   const colWidths = keys.map(k => {
@@ -33,7 +33,8 @@ function autoWidth(ws, data) {
 /* ══════════════════════════════════════════
    1. ยอดขายรายวัน/เดือน
 ═══════════════════════════════════════════ */
-export function exportSalesReport({ orders, startDate, endDate, preset }) {
+export async function exportSalesReport({ orders, startDate, endDate }) {
+  const XLSX = await getXLSX()
   const wb = XLSX.utils.book_new()
   const rangeLabel = `${fmtDateOnly(startDate)} - ${fmtDateOnly(endDate)}`
 
@@ -42,54 +43,35 @@ export function exportSalesReport({ orders, startDate, endDate, preset }) {
   orders.forEach(o => {
     const d = o.created_at.slice(0, 10)
     if (!dailyMap[d]) dailyMap[d] = { วันที่: d, จำนวนออเดอร์: 0, ยอดขาย: 0, ยกเลิก: 0 }
-    if (o.status === 'cancelled') {
-      dailyMap[d].ยกเลิก++
-    } else {
-      dailyMap[d].จำนวนออเดอร์++
-      dailyMap[d].ยอดขาย += Number(o.total)
-    }
+    if (o.status === 'cancelled') dailyMap[d].ยกเลิก++
+    else { dailyMap[d].จำนวนออเดอร์++; dailyMap[d].ยอดขาย += Number(o.total) }
   })
   const dailyRows = Object.values(dailyMap).sort((a, b) => a.วันที่.localeCompare(b.วันที่))
-  // summary row
   dailyRows.push({
     วันที่: 'รวม',
     จำนวนออเดอร์: dailyRows.reduce((s, r) => s + r.จำนวนออเดอร์, 0),
-    ยอดขาย:      dailyRows.reduce((s, r) => s + r.ยอดขาย,      0),
-    ยกเลิก:      dailyRows.reduce((s, r) => s + r.ยกเลิก,       0),
+    ยอดขาย:      dailyRows.reduce((s, r) => s + r.ยอดขาย, 0),
+    ยกเลิก:      dailyRows.reduce((s, r) => s + r.ยกเลิก, 0),
   })
   const ws1 = XLSX.utils.json_to_sheet(dailyRows)
   autoWidth(ws1, dailyRows)
   XLSX.utils.book_append_sheet(wb, ws1, 'ยอดขายรายวัน')
 
-  /* ── Sheet 2: รายการออเดอร์ละเอียด ── */
+  /* ── Sheet 2: รายการออเดอร์ ── */
   const orderRows = []
   orders.forEach(o => {
-    const items = o.order_items || []
-    if (!items.length) {
+    ;(o.order_items || [{ name: '-', quantity: '-', price: '-' }]).forEach((item, idx) => {
       orderRows.push({
-        วันที่:       fmtDate(o.created_at),
-        คิว:          `#${o.order_number}`,
-        สินค้า:      '-',
-        จำนวน:       '-',
-        ราคา:        '-',
-        ยอดรวม:      o.status === 'cancelled' ? 0 : Number(o.total),
-        สถานะ:       o.status,
-        แคชเชียร์:   o.cashier_name || '-',
+        วันที่:     idx === 0 ? fmtDate(o.created_at) : '',
+        คิว:        idx === 0 ? `#${o.order_number}` : '',
+        สินค้า:    item.name,
+        จำนวน:     item.quantity,
+        ราคา:      item.price,
+        ยอดรวม:    idx === 0 ? (o.status === 'cancelled' ? 0 : Number(o.total)) : '',
+        สถานะ:     idx === 0 ? o.status : '',
+        แคชเชียร์: idx === 0 ? (o.cashier_name || '-') : '',
       })
-    } else {
-      items.forEach((item, idx) => {
-        orderRows.push({
-          วันที่:       idx === 0 ? fmtDate(o.created_at) : '',
-          คิว:          idx === 0 ? `#${o.order_number}` : '',
-          สินค้า:      item.name,
-          จำนวน:       item.quantity,
-          ราคา:        item.price,
-          ยอดรวม:      idx === 0 ? (o.status === 'cancelled' ? 0 : Number(o.total)) : '',
-          สถานะ:       idx === 0 ? o.status : '',
-          แคชเชียร์:   idx === 0 ? (o.cashier_name || '-') : '',
-        })
-      })
-    }
+    })
   })
   const ws2 = XLSX.utils.json_to_sheet(orderRows)
   autoWidth(ws2, orderRows)
@@ -104,20 +86,19 @@ export function exportSalesReport({ orders, startDate, endDate, preset }) {
       productMap[item.name].ยอดขาย   += item.price * item.quantity
     })
   })
-  const productRows = Object.values(productMap)
-    .sort((a, b) => b.จำนวนแก้ว - a.จำนวนแก้ว)
+  const productRows = Object.values(productMap).sort((a, b) => b.จำนวนแก้ว - a.จำนวนแก้ว)
   const ws3 = XLSX.utils.json_to_sheet(productRows)
   autoWidth(ws3, productRows)
   XLSX.utils.book_append_sheet(wb, ws3, 'สินค้าขายดี')
 
-  const filename = `ยอดขาย_${rangeLabel.replace(/\//g, '-').replace(/ /g, '')}.xlsx`
-  saveWorkbook(wb, filename)
+  XLSX.writeFile(wb, `ยอดขาย_${rangeLabel.replace(/\//g, '-').replace(/ /g, '')}.xlsx`)
 }
 
 /* ══════════════════════════════════════════
    2. สต็อกวัตถุดิบ
 ═══════════════════════════════════════════ */
-export function exportInventory(items) {
+export async function exportInventory(items) {
+  const XLSX = await getXLSX()
   const wb = XLSX.utils.book_new()
 
   /* ── Sheet 1: สต็อกปัจจุบัน ── */
@@ -143,17 +124,14 @@ export function exportInventory(items) {
   autoWidth(ws1, stockRows)
   XLSX.utils.book_append_sheet(wb, ws1, 'สต็อกวัตถุดิบ')
 
-  /* ── Sheet 2: รายการสต็อกต่ำ ── */
   const lowRows = items
     .filter(i => Number(i.quantity) <= Number(i.min_quantity))
     .map(i => ({
       ชื่อวัตถุดิบ: i.name,
-      คงเหลือ:      Number(i.quantity),
-      หน่วย:        i.unit,
-      ขั้นต่ำ:      Number(i.min_quantity),
-      ขาดอีก:       Number(i.min_quantity) - Number(i.quantity),
+      คงเหลือ: Number(i.quantity), หน่วย: i.unit,
+      ขั้นต่ำ: Number(i.min_quantity),
+      ขาดอีก: Number(i.min_quantity) - Number(i.quantity),
     }))
-
   if (lowRows.length) {
     const ws2 = XLSX.utils.json_to_sheet(lowRows)
     autoWidth(ws2, lowRows)
@@ -161,13 +139,14 @@ export function exportInventory(items) {
   }
 
   const today = new Date().toLocaleDateString('th-TH').replace(/\//g, '-')
-  saveWorkbook(wb, `สต็อกวัตถุดิบ_${today}.xlsx`)
+  XLSX.writeFile(wb, `สต็อกวัตถุดิบ_${today}.xlsx`)
 }
 
 /* ══════════════════════════════════════════
    3. รายการออเดอร์ทั้งหมด (จากหน้า Orders)
 ═══════════════════════════════════════════ */
-export function exportOrders(orders, dateLabel) {
+export async function exportOrders(orders, dateLabel) {
+  const XLSX = await getXLSX()
   const wb = XLSX.utils.book_new()
 
   const rows = []
@@ -207,6 +186,5 @@ export function exportOrders(orders, dateLabel) {
   const ws = XLSX.utils.json_to_sheet(rows)
   autoWidth(ws, rows)
   XLSX.utils.book_append_sheet(wb, ws, 'ออเดอร์')
-
-  saveWorkbook(wb, `ออเดอร์_${dateLabel}.xlsx`)
+  XLSX.writeFile(wb, `ออเดอร์_${dateLabel}.xlsx`)
 }
