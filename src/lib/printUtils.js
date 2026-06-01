@@ -5,6 +5,7 @@
  */
 
 import { generatePromptPayPayload, generateQRImageURL, PROMPTPAY_ID } from './promptpay.js'
+import { SHOP_LOGO_B64 } from './shopLogo.js'
 
 const SHOP_NAME    = import.meta.env.VITE_SHOP_NAME    || 'ร้านกาแฟ'
 const SHOP_TAGLINE = import.meta.env.VITE_SHOP_TAGLINE || 'Cafe Management'
@@ -100,6 +101,7 @@ export function printReceipt(order, items, memberInfo = null) {
     .queue-num   { font-size: 48px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 
     /* ── หัวร้าน ── */
+    .shop-logo { width: 80px; height: auto; display: block; margin: 0 auto 4px; }
     .shop-name { font-size: 17px; font-weight: 700; }
     .shop-sub  { font-size: 11px; color: #666; margin-top: 1px; }
     .meta      { font-size: 11px; color: #555; margin-top: 3px; }
@@ -170,9 +172,9 @@ export function printReceipt(order, items, memberInfo = null) {
 
   <hr class="divider-solid" />
 
-  <!-- ชื่อร้าน -->
+  <!-- ชื่อร้าน + โลโก้ -->
   <div class="center">
-    <div class="shop-name">${SHOP_EMOJI} ${SHOP_NAME}</div>
+    <img class="shop-logo" src="${SHOP_LOGO_B64}" alt="${SHOP_NAME}" />
     <div class="shop-sub">${SHOP_TAGLINE}</div>
     <div class="meta">${fmtDate(order.created_at)}</div>
   </div>
