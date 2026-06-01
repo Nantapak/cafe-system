@@ -36,14 +36,8 @@ export default function Login() {
       <div className="w-full max-w-xs">
 
         {/* Logo */}
-        <div className="flex flex-col items-center mb-10">
-          <ShopLogo iconSize={72} showText={false} invert={false} />
-          <p className="text-3xl font-black text-coffee-800 tracking-tight leading-none mt-4">
-            5th cup
-          </p>
-          <p className="text-sm text-coffee-400 mt-1 tracking-widest font-light">
-            FIFTH CUP
-          </p>
+        <div className="flex justify-center mb-10">
+          <ShopLogo iconSize={90} showText={false} invert={false} />
         </div>
 
         {/* Card */}

@@ -172,10 +172,9 @@ export function printReceipt(order, items, memberInfo = null) {
 
   <hr class="divider-solid" />
 
-  <!-- ชื่อร้าน + โลโก้ -->
+  <!-- โลโก้ -->
   <div class="center">
     <img class="shop-logo" src="${SHOP_LOGO_B64}" alt="${SHOP_NAME}" />
-    <div class="shop-sub">${SHOP_TAGLINE}</div>
     <div class="meta">${fmtDate(order.created_at)}</div>
   </div>
 
