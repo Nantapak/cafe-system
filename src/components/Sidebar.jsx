@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import ShopLogo from './ShopLogo'
 
 const ALL_NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'แดชบอร์ด',       roles: ['admin'] },
@@ -57,17 +58,15 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col bg-coffee-800 text-white shadow-xl shrink-0 w-16 lg:w-60 transition-[width] duration-200">
-      <div className="flex items-center gap-3 px-3 lg:px-5 py-5 border-b border-coffee-700 min-h-[72px]">
-        <span className="text-2xl shrink-0">
-          {import.meta.env.VITE_SHOP_EMOJI || '☕'}
-        </span>
-        <div className="hidden lg:block overflow-hidden">
-          <p className="font-bold text-base leading-tight truncate">
-            {import.meta.env.VITE_SHOP_NAME || 'ร้านกาแฟ'}
-          </p>
-          <p className="text-coffee-300 text-xs truncate">
-            {import.meta.env.VITE_SHOP_TAGLINE || 'Cafe Management'}
-          </p>
+      <div className="flex items-center justify-center lg:justify-start px-3 lg:px-5 py-5 border-b border-coffee-700 min-h-[72px]">
+        {/* icon-only บนหน้าจอแคบ */}
+        <div className="lg:hidden">
+          <ShopLogo color="white" iconSize={30} showText={false} />
+        </div>
+        {/* full logo บน desktop */}
+        <div className="hidden lg:block">
+          <ShopLogo color="white" iconSize={32} showText={true}
+            textColor="text-white" subColor="text-coffee-300" />
         </div>
       </div>
 

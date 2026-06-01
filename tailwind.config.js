@@ -8,18 +8,21 @@ export default {
     extend: {
       colors: {
         coffee: {
-          50:  '#fdf8f0',
-          100: '#faefd9',
-          200: '#f3d9a8',
-          300: '#e8bc6c',
-          400: '#dc9a3a',
-          500: '#c97f20',
-          600: '#a96318',
-          700: '#8a4b18',
-          800: '#703c1a',
-          900: '#5c3219',
+          50:  '#F8F6F3',   // off-white background
+          100: '#EDE8DF',   // light surface
+          200: '#D4C9BB',   // border
+          300: '#B0A090',   // muted text
+          400: '#8A7465',   // secondary
+          500: '#5E4A3A',   // medium
+          600: '#3A2A1C',   // primary — dark brown (ปุ่ม, active)
+          700: '#2B1F14',   // hover
+          800: '#1E1510',   // sidebar background
+          900: '#120C07',   // deepest
         }
-      }
+      },
+      fontFamily: {
+        sans: ['Sarabun', 'Noto Sans Thai', 'system-ui', 'sans-serif'],
+      },
     },
   },
   plugins: [],

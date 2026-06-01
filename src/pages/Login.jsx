@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, ROLE_DEFAULT } from '../contexts/AuthContext'
-import { Coffee, Eye, EyeOff, User } from 'lucide-react'
+import { Eye, EyeOff, User } from 'lucide-react'
+import ShopLogo from '../components/ShopLogo'
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -30,43 +31,47 @@ export default function Login() {
     }
   }
 
-  const SHOP_NAME    = import.meta.env.VITE_SHOP_NAME    || 'ร้านกาแฟ'
-  const SHOP_TAGLINE = import.meta.env.VITE_SHOP_TAGLINE || 'Cafe Management'
-  const SHOP_EMOJI   = import.meta.env.VITE_SHOP_EMOJI   || 'coffee'
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-coffee-900 via-coffee-800 to-coffee-700 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-coffee-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-xs">
 
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur rounded-3xl mb-4 shadow-xl border border-white/20">
-            <span className="text-4xl">{SHOP_EMOJI}</span>
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="mb-5">
+            <ShopLogo
+              color="#3A2A1C"
+              iconSize={56}
+              showText={false}
+            />
           </div>
-          <h1 className="text-3xl font-bold text-white">{SHOP_NAME}</h1>
-          <p className="text-coffee-300 text-sm mt-1">{SHOP_TAGLINE}</p>
+          <p className="text-3xl font-black text-coffee-800 tracking-tight leading-none">
+            5th cup
+          </p>
+          <p className="text-sm text-coffee-400 mt-1 tracking-widest font-light">
+            FIFTH CUP
+          </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <Coffee size={20} className="text-coffee-600" />
+        {/* Card */}
+        <div className="bg-white rounded-3xl shadow-sm border border-coffee-100 p-7">
+          <p className="text-xs font-semibold text-coffee-400 uppercase tracking-widest mb-5">
             เข้าสู่ระบบ
-          </h2>
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">ชื่อผู้ใช้</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <User size={15} />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300">
+                  <User size={14} />
                 </span>
                 <input
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
-                  className="input w-full pl-9"
-                  placeholder="กรอกชื่อผู้ใช้"
-                  required
-                  autoFocus
+                  className="input pl-9"
+                  placeholder="username"
+                  required autoFocus
                   autoComplete="username"
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -75,44 +80,41 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">รหัสผ่าน</label>
               <div className="relative">
                 <input
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="input w-full pr-10"
-                  placeholder="........"
+                  className="input pr-10"
+                  placeholder="••••••••"
                   required
                   autoComplete="current-password"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                <button type="button" onClick={() => setShowPwd(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors">
+                  {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
             {error && (
-              <div className="text-red-600 text-sm bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
+              <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-xl px-3 py-2">
                 {error}
-              </div>
+              </p>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full py-3 text-base mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="btn-primary w-full py-3 text-sm mt-1"
             >
               {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-xs text-coffee-400 mt-6">
+        <p className="text-center text-xs text-coffee-300 mt-6">
           ติดต่อผู้ดูแลระบบหากลืมรหัสผ่าน
         </p>
       </div>
