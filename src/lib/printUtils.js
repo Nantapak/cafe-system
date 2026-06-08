@@ -82,14 +82,22 @@ export function printReceipt(order, items, memberInfo = null) {
   <title>ใบเสร็จ #${order.order_number}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
-    @page { size: 80mm auto; margin: 2mm 0; }
+    @page {
+      size: 80mm auto;
+      margin: 0;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Sarabun', 'Courier New', monospace;
+      font-family: 'Sarabun', 'TH Sarabun New', 'Courier New', monospace;
       font-size: 13px;
       color: #000;
-      width: 76mm;
-      padding: 4mm 4mm;
+      width: 80mm;
+      padding: 3mm 4mm;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    @media print {
+      html, body { width: 80mm; }
     }
     .center  { text-align: center; }
     .divider { border: none; border-top: 1px dashed #000; margin: 5px 0; }
