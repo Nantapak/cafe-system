@@ -84,20 +84,21 @@ export function printReceipt(order, items, memberInfo = null) {
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
     @page {
       size: 80mm auto;
-      margin: 0;
+      margin: 0 3mm;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Sarabun', 'TH Sarabun New', 'Courier New', monospace;
       font-size: 13px;
       color: #000;
-      width: 80mm;
-      padding: 3mm 4mm;
+      width: 72mm;
+      max-width: 72mm;
+      padding: 2mm 1mm;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
     @media print {
-      html, body { width: 80mm; }
+      html, body { width: 72mm; max-width: 72mm; }
     }
     .center  { text-align: center; }
     .divider { border: none; border-top: 1px dashed #000; margin: 5px 0; }
