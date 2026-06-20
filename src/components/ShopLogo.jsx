@@ -20,7 +20,7 @@ export default function ShopLogo({
     <div className="flex items-center gap-2.5">
       <img
         src={SHOP_LOGO_B64}
-        alt="5th cup logo"
+        alt="5th Coffee logo"
         style={{
           height: iconSize,
           width: 'auto',
@@ -30,10 +30,10 @@ export default function ShopLogo({
       {showText && (
         <div>
           <p className={`font-semibold text-base leading-tight tracking-tight ${textColor}`}>
-            <span className="font-black">5th</span> cup
+            <span className="font-black">5th</span> Coffee
           </p>
           <p className={`text-[11px] leading-none font-light tracking-wide ${subColor}`}>
-            Fifth cup
+            5th Coffee
           </p>
         </div>
       )}
