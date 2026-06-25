@@ -261,4 +261,16 @@ export const printBoth        = printReceipt
 function openPrintWindow(html, name) {
   const win = window.open('', name, 'width=380,height=600')
   if (!win) {
-    alert('กร�
+    alert('กรุณาอนุญาต Pop-up จากเว็บไซต์นี้ก่อนปริ้น')
+    return
+  }
+  win.document.write(html)
+  win.document.close()
+  win.focus()
+  win.onload = () => {
+    setTimeout(() => {
+      win.print()
+      win.close()
+    }, 350)
+  }
+}
