@@ -46,7 +46,7 @@ export function printReceipt(order, items, memberInfo = null) {
 
   /* ── สร้าง QR PromptPay (ถ้ามี VITE_PROMPTPAY_ID) ── */
   let qrBlock = ''
-  if (PROMPTPAY_ID && !isCancelled) {
+  if (PROMPTPAY_ID && !isCancelled && order.payment_method !== 'cash') {
     try {
       const payload = generatePromptPayPayload(PROMPTPAY_ID, Number(order.total))
       const qrUrl   = generateQRImageURL(payload, 160)
@@ -261,16 +261,4 @@ export const printBoth        = printReceipt
 function openPrintWindow(html, name) {
   const win = window.open('', name, 'width=380,height=600')
   if (!win) {
-    alert('กรุณาอนุญาต Pop-up จากเว็บไซต์นี้ก่อนปริ้น')
-    return
-  }
-  win.document.write(html)
-  win.document.close()
-  win.focus()
-  win.onload = () => {
-    setTimeout(() => {
-      win.print()
-      win.close()
-    }, 350)
-  }
-}
+    alert('กร�

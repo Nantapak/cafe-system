@@ -561,7 +561,7 @@ export default function POS() {
 
     /* สร้าง QR URL สำหรับแสดงหน้าจอ (ถ้า PROMPTPAY_ID ตั้งค่าไว้) */
     let qrImgUrl = null
-    if (lastOrder && PROMPTPAY_ID) {
+    if (lastOrder && PROMPTPAY_ID && lastOrder.order.payment_method !== 'cash') {
       try {
         const payload = generatePromptPayPayload(PROMPTPAY_ID, Number(lastOrder.order.total))
         qrImgUrl = generateQRImageURL(payload, 220)
