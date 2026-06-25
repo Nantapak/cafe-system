@@ -49,7 +49,7 @@ export function printReceipt(order, items, memberInfo = null) {
   if (PROMPTPAY_ID && !isCancelled) {
     try {
       const payload = generatePromptPayPayload(PROMPTPAY_ID, Number(order.total))
-      const qrUrl   = generateQRImageURL(payload, 200)
+      const qrUrl   = generateQRImageURL(payload, 160)
       qrBlock = `
         <hr class="divider" />
         <div class="qr-wrap">
@@ -60,6 +60,7 @@ export function printReceipt(order, items, memberInfo = null) {
       `
     } catch (_) { /* ถ้าสร้าง QR ไม่ได้ก็ข้ามไป */ }
   }
+
   const rows = items.map(item => {
     const sizePart = item.size_name ? ` (${item.size_name})` : ''
     const notePart = item.note
@@ -82,59 +83,68 @@ export function printReceipt(order, items, memberInfo = null) {
   <title>ใบเสร็จ #${order.order_number}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
+
+    /* ── กระดาษ 80mm: margin 4mm ซ้าย-ขวา = พื้นที่พิมพ์ 72mm ── */
     @page {
       size: 80mm auto;
-      margin: 0 3mm;
+      margin: 4mm 4mm;
     }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       font-family: 'Sarabun', 'TH Sarabun New', 'Courier New', monospace;
       font-size: 13px;
       color: #000;
       width: 72mm;
       max-width: 72mm;
-      padding: 2mm 1mm;
+      padding: 0;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
+
     @media print {
-      html, body { width: 72mm; max-width: 72mm; }
+      html, body {
+        width: 72mm;
+        max-width: 72mm;
+      }
     }
+
     .center  { text-align: center; }
-    .divider { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-    .divider-solid { border: none; border-top: 2px solid #000; margin: 5px 0; }
+    .divider { border: none; border-top: 1px dashed #000; margin: 4px 0; }
+    .divider-solid { border: none; border-top: 2px solid #000; margin: 4px 0; }
 
     /* ── เลขคิว ── */
-    .queue-wrap  { text-align: center; padding: 4px 0 2px; }
-    .queue-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; color: #555; }
-    .queue-num   { font-size: 48px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+    .queue-wrap  { text-align: center; padding: 3px 0 2px; }
+    .queue-label { font-size: 10px; font-weight: 600; letter-spacing: 2px; color: #555; }
+    .queue-num   { font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 
     /* ── หัวร้าน ── */
-    .shop-logo { width: 80px; height: auto; display: block; margin: 0 auto 4px; }
-    .shop-name { font-size: 17px; font-weight: 700; }
-    .shop-sub  { font-size: 11px; color: #666; margin-top: 1px; }
-    .meta      { font-size: 11px; color: #555; margin-top: 3px; }
+    .shop-logo { width: 64px; height: auto; display: block; margin: 0 auto 3px; }
+    .shop-name { font-size: 15px; font-weight: 700; }
+    .shop-sub  { font-size: 10px; color: #666; margin-top: 1px; }
+    .meta      { font-size: 10px; color: #555; margin-top: 2px; }
 
     /* ── รายการ ── */
     .row {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin: 3px 0;
-      gap: 6px;
+      margin: 2px 0;
+      gap: 4px;
     }
-    .item-name  { flex: 1; line-height: 1.4; }
+    .item-name  { flex: 1; line-height: 1.4; word-break: break-word; }
     .item-price { white-space: nowrap; }
     .note {
-      font-size: 11px;
+      font-size: 10px;
       color: #444;
-      margin: 0 0 3px 8px;
+      margin: 0 0 2px 6px;
       font-style: italic;
     }
 
     /* ── ยอดรวม ── */
     .total-row {
-      font-size: 17px;
+      font-size: 15px;
       font-weight: 700;
     }
 
@@ -143,26 +153,26 @@ export function printReceipt(order, items, memberInfo = null) {
       text-align: center;
       background: #000;
       color: #fff;
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 700;
       letter-spacing: 3px;
-      padding: 4px 0;
-      margin-bottom: 4px;
+      padding: 3px 0;
+      margin-bottom: 3px;
     }
 
     /* ── QR PromptPay ── */
-    .qr-wrap  { text-align: center; margin: 6px 0 4px; }
-    .qr-img   { width: 140px; height: 140px; }
-    .qr-label { font-size: 11px; color: #555; margin-top: 2px; }
-    .qr-amt   { font-size: 15px; font-weight: 700; margin-top: 2px; }
+    .qr-wrap  { text-align: center; margin: 4px 0 3px; }
+    .qr-img   { width: 110px; height: 110px; }
+    .qr-label { font-size: 10px; color: #555; margin-top: 2px; }
+    .qr-amt   { font-size: 13px; font-weight: 700; margin-top: 2px; }
 
     /* ── ท้าย ── */
-    .footer { font-size: 11px; color: #999; margin-top: 5px; }
+    .footer { font-size: 10px; color: #999; margin-top: 4px; }
 
     /* ── สมาชิก ── */
-    .member-wrap  { margin: 4px 0; padding: 5px 6px; border: 1px dashed #ccc; border-radius: 6px; }
-    .member-id    { font-size: 12px; font-weight: 700; letter-spacing: 1px; }
-    .member-pts   { font-size: 11px; color: #555; margin-top: 2px; }
+    .member-wrap  { margin: 3px 0; padding: 4px 5px; border: 1px dashed #ccc; border-radius: 4px; }
+    .member-id    { font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+    .member-pts   { font-size: 10px; color: #555; margin-top: 2px; }
     .member-bar-wrap { display: flex; gap: 2px; margin-top: 3px; }
     .member-bar-cell { flex: 1; height: 5px; border-radius: 2px; }
     .member-bar-fill { background: #92400e; }
@@ -208,10 +218,10 @@ export function printReceipt(order, items, memberInfo = null) {
   <!-- สมาชิก -->
   ${memberInfo ? (() => {
     const code   = memberCode(memberInfo.id)
-    const pts    = memberInfo.points          // แต้มหลังออเดอร์นี้
+    const pts    = memberInfo.points
     const earned = memberInfo.pointsEarned || 0
     const used   = memberInfo.pointsUsed   || 0
-    const prog   = pts % 10                   // ความคืบหน้าในรอบ 10 แต้ม
+    const prog   = pts % 10
     const bars   = Array.from({ length: 10 }, (_, i) =>
       `<div class="member-bar-cell ${i < prog ? 'member-bar-fill' : 'member-bar-empty'}"></div>`
     ).join('')
@@ -249,7 +259,7 @@ export const printBoth        = printReceipt
    Helper: เปิดหน้าต่างปริ้น
 ═══════════════════════════════════════════════════ */
 function openPrintWindow(html, name) {
-  const win = window.open('', name, 'width=420,height=650')
+  const win = window.open('', name, 'width=380,height=600')
   if (!win) {
     alert('กรุณาอนุญาต Pop-up จากเว็บไซต์นี้ก่อนปริ้น')
     return
