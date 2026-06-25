@@ -469,4 +469,31 @@ export default function Orders() {
                       {s.next && (
                         <button onClick={() => updateStatus(order.id, s.next)}
                           className="btn-primary text-sm py-1.5 px-4">
-          
+                          {s.nextLabel}
+                        </button>
+                      )}
+                      {!['completed','cancelled'].includes(order.status) && (
+                        <button onClick={() => cancelOrder(order.id)}
+                          className="btn-danger text-sm py-1.5 px-3">
+                          ยกเลิก
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handlePrint(order)}
+                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+                                   bg-coffee-50 text-coffee-700 border border-coffee-200 hover:bg-coffee-100 transition-colors"
+                      >
+                        <Printer size={14} /> ปริ้น
+                      </button>
+                    </div>
+
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
