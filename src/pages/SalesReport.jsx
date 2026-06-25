@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import {
   TrendingUp, ShoppingBag, Receipt, BarChart2,
-  RefreshCw, ChevronDown, Award, Tag, Download,
+  RefreshCw, ChevronDown, Award, Tag, Download, CreditCard,
 } from 'lucide-react'
 import { exportSalesReport } from '../lib/exportUtils'
 
@@ -198,7 +198,6 @@ export default function SalesReport() {
     })
     setByStaff(Object.values(staffMap).sort((a, b) => b.revenue - a.revenue))
 
-    // By payment method
     const payMap = { cash: 0, transfer: 0 }
     completed.forEach(o => {
       const m = o.payment_method || 'cash'
@@ -388,24 +387,25 @@ export default function SalesReport() {
               )}
             </div>
 
-            {/* By payment method */}
+            {/* By staff */}
             <div className="card px-4 py-4">
               <div className="flex items-center gap-2 mb-3">
-                <Receipt size={16} className="text-emerald-500" />
+                <CreditCard size={16} className="text-purple-500" />
                 <p className="text-sm font-semibold text-gray-700">ยอดขายตามวิธีชำระ</p>
               </div>
               <div className="space-y-2">
                 {[
-                  { key: 'cash',     label: '💵 เงินสด', color: 'bg-green-400', text: 'text-green-700' },
-                  { key: 'transfer', label: '📲 โอน',    color: 'bg-blue-400',  text: 'text-blue-700'  },
-                ].map(({ key, label, color, text }) => {
+                  { key: 'cash',     label: '💵 เงินสด', color: 'bg-green-400' },
+                  { key: 'transfer', label: '📲 โอน',    color: 'bg-blue-400'  },
+                ].map(({ key, label, color }) => {
                   const rev = byPayment[key] || 0
-                  const pct = summary.revenue > 0 ? (rev / summary.revenue) * 100 : 0
+                  const pct = (byPayment.cash + byPayment.transfer) > 0
+                    ? (rev / (byPayment.cash + byPayment.transfer)) * 100 : 0
                   return (
                     <div key={key}>
                       <div className="flex justify-between items-center text-xs mb-0.5">
                         <span className="text-gray-700 font-medium">{label}</span>
-                        <span className={`font-bold ${text}`}>฿{rev.toLocaleString()}</span>
+                        <span className="font-bold text-gray-800">฿{rev.toLocaleString()}</span>
                       </div>
                       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
@@ -416,7 +416,6 @@ export default function SalesReport() {
               </div>
             </div>
 
-            {/* By staff */}
             <div className="card px-4 py-4">
               <div className="flex items-center gap-2 mb-3">
                 <Tag size={16} className="text-blue-500" />
@@ -439,4 +438,45 @@ export default function SalesReport() {
                         </div>
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div
-                        
+                            className="h-full bg-blue-400 rounded-full"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Order list summary */}
+          {summary.orders > 0 && (
+            <div className="card px-4 py-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Receipt size={16} className="text-gray-500" />
+                <p className="text-sm font-semibold text-gray-700">สรุปตัวเลขรวม</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                {[
+                  { label: 'ยอดขายสูงสุด/ออเดอร์', value: `฿${Math.max(...(
+                    // ต้องเก็บ orders ไว้ใน state — ใช้ summary แทน
+                    [summary.revenue]
+                  )).toLocaleString()}` },
+                  { label: 'ยอดรวมทั้งหมด', value: `฿${summary.revenue.toLocaleString()}` },
+                  { label: 'ออเดอร์ที่สำเร็จ', value: `${summary.orders} รายการ` },
+                  { label: 'ยอดขายถูกยกเลิก', value: `${summary.cancelled} รายการ` },
+                ].map(item => (
+                  <div key={item.label} className="bg-gray-50 rounded-xl px-3 py-2">
+                    <p className="text-xs text-gray-400 mb-1">{item.label}</p>
+                    <p className="text-sm font-bold text-gray-700">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
