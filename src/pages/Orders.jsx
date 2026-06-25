@@ -217,48 +217,35 @@ export default function Orders() {
       ...extra,
     }).eq('id', id)
 
-    // คืนสต็อกวัตถุดิบ
-    if (order?.order_items?.length) {
-      const productIds = [...new Set(order.order_items.map(i => i.product_id))]
-      const { data: ingRows } = await supabase
-        .from('product_ingredients')
-        .select('product_id, inventory_id, quantity, size_id')
-        .in('product_id', productIds)
+    // คืนสต็อกวัตถุดิบ — ดูจาก inventory_transactions ที่ตัดไปตอนออเดอร์นี้
+    const { data: txRows } = await supabase
+      .from('inventory_transactions')
+      .select('inventory_id, quantity')
+      .eq('type', 'out')
+      .eq('note', `ออเดอร์ #${order.order_number}`)
 
-      if (ingRows?.length) {
-        const restoreMap = {}
-        for (const item of order.order_items) {
-          let ings = ingRows.filter(r => r.product_id === item.product_id && r.size_id === item.size_id)
-          if (!ings.length) ings = ingRows.filter(r => r.product_id === item.product_id && !r.size_id)
-          const general  = ingRows.filter(r => r.product_id === item.product_id && !r.size_id)
-          const toRestore = item.size_id
-            ? ings.concat(general.filter(g => !ings.find(x => x.inventory_id === g.inventory_id)))
-            : ings
-          for (const ing of toRestore) {
-            restoreMap[ing.inventory_id] = (restoreMap[ing.inventory_id] || 0) + Number(ing.quantity) * item.quantity
-          }
-        }
+    if (txRows?.length) {
+      const { data: invRows } = await supabase
+        .from('inventory').select('id, quantity')
+        .in('id', txRows.map(t => t.inventory_id))
 
-        const invIds = Object.keys(restoreMap)
-        if (invIds.length) {
-          const { data: invRows } = await supabase
-            .from('inventory').select('id, quantity').in('id', invIds)
-          await Promise.all([
-            ...invRows.map(inv =>
-              supabase.from('inventory')
-                .update({ quantity: Number(inv.quantity) + restoreMap[inv.id] })
-                .eq('id', inv.id)
-            ),
-            supabase.from('inventory_transactions').insert(
-              invRows.map(inv => ({
-                inventory_id: inv.id,
-                type:         'in',
-                quantity:     restoreMap[inv.id],
-                note:         `ยกเลิกออเดอร์ #${order.order_number} (คืนสต็อก)`,
-              }))
-            ),
-          ])
-        }
+      if (invRows?.length) {
+        await Promise.all([
+          ...invRows.map(inv => {
+            const tx = txRows.find(t => t.inventory_id === inv.id)
+            return supabase.from('inventory')
+              .update({ quantity: Number(inv.quantity) + Number(tx.quantity) })
+              .eq('id', inv.id)
+          }),
+          supabase.from('inventory_transactions').insert(
+            txRows.map(t => ({
+              inventory_id: t.inventory_id,
+              type:         'in',
+              quantity:     t.quantity,
+              note:         `ยกเลิกออเดอร์ #${order.order_number} (คืนสต็อก)`,
+            }))
+          ),
+        ])
       }
     }
 
@@ -271,7 +258,7 @@ export default function Orders() {
     // ดึงข้อมูลออเดอร์ก่อนยกเลิก เพื่อคืนแต้มสมาชิก + คืนสต็อก
     const { data: order } = await supabase
       .from('orders')
-      .select('customer_id, points_earned, points_redeemed, order_number, order_items(product_id, quantity, size_id)')
+      .select('customer_id, points_earned, points_redeemed, order_number')
       .eq('id', id).single()
 
     await supabase.from('orders').update({
