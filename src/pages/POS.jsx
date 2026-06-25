@@ -709,7 +709,7 @@ export default function POS() {
           <CartItems />
           {CustomerSection()}
 
-          <div className="px-4 py-3 border-t border-gray-100 space-y-2">
+          <div className="px-4 py-3 border-t border-gray-100 space-y-2 overflow-y-auto max-h-80">
             <div>
               <p className="text-xs text-gray-500 mb-1.5 font-medium">วิธีชำระเงิน</p>
               <div className="flex gap-2">
