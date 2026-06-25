@@ -95,8 +95,9 @@ export default function POS() {
   const [success,    setSuccess]    = useState(null)
   const [lastOrder,  setLastOrder]  = useState(null)
   const [customize,  setCustomize]  = useState(null)
-  const [cartOpen,   setCartOpen]   = useState(false)
-  const [costInfo,   setCostInfo]   = useState({ perCup: null, breakdown: [] })
+  const [cartOpen,     setCartOpen]     = useState(false)
+  const [costInfo,     setCostInfo]     = useState({ perCup: null, breakdown: [] })
+  const [paymentMethod, setPaymentMethod] = useState('cash')
 
   /* ── สมาชิก ── */
   const [customer,      setCustomer]      = useState(null)
@@ -279,6 +280,7 @@ export default function POS() {
           total:            orderTotal,
           discount:         redeemDiscount,
           status:           'pending',
+          payment_method:   paymentMethod,
           cashier_id:       null,
           cashier_name:     cashierName_,
           customer_id:      customer?.id || null,
@@ -706,6 +708,23 @@ export default function POS() {
           {CustomerSection()}
 
           <div className="px-4 py-3 border-t border-gray-100 space-y-2">
+            {/* วิธีชำระเงิน */}
+            <div>
+              <p className="text-xs text-gray-500 mb-1.5 font-medium">วิธีชำระเงิน</p>
+              <div className="flex gap-2">
+                {[
+                  { value: 'cash',     label: '💵 เงินสด', active: 'bg-green-50 border-green-500 text-green-700' },
+                  { value: 'transfer', label: '📲 โอน',    active: 'bg-blue-50  border-blue-500  text-blue-700'  },
+                ].map(opt => (
+                  <button key={opt.value} type="button"
+                    onClick={() => setPaymentMethod(opt.value)}
+                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-all
+                      ${paymentMethod === opt.value ? opt.active : 'border-gray-200 text-gray-400 hover:border-gray-300'}`}
+                  >{opt.label}</button>
+                ))}
+              </div>
+            </div>
+
             {redeemDiscount > 0 && (
               <div className="flex justify-between items-center text-sm">
                 <span className="text-green-600">ส่วนลดแต้ม 🎁</span>
@@ -781,6 +800,23 @@ export default function POS() {
 
             <div className="px-4 pt-3 pb-4 border-t border-gray-100 space-y-2 bg-white shrink-0"
                  style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}>
+              {/* วิธีชำระเงิน */}
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5 font-medium">วิธีชำระเงิน</p>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'cash',     label: '💵 เงินสด', active: 'bg-green-50 border-green-500 text-green-700' },
+                    { value: 'transfer', label: '📲 โอน',    active: 'bg-blue-50  border-blue-500  text-blue-700'  },
+                  ].map(opt => (
+                    <button key={opt.value} type="button"
+                      onClick={() => setPaymentMethod(opt.value)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-all
+                        ${paymentMethod === opt.value ? opt.active : 'border-gray-200 text-gray-400 hover:border-gray-300'}`}
+                    >{opt.label}</button>
+                  ))}
+                </div>
+              </div>
+
               {redeemDiscount > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-green-600">ส่วนลดแต้ม 🎁</span>
@@ -872,67 +908,3 @@ export default function POS() {
                           : 'border-gray-200 text-gray-600 hover:border-coffee-300 bg-white'}`}
                     >
                       {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 🧾 สูตร (แสดงส่วนผสมสำหรับบาริสต้า ไม่แสดงต้นทุน) */}
-              {costInfo.breakdown.length > 0 && (
-                <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
-                  <p className="text-xs font-semibold text-purple-800 mb-2">🧾 สูตร</p>
-                  <div className="space-y-1">
-                    {costInfo.breakdown.map((ing, i) => (
-                      <div key={i} className="flex justify-between text-xs text-purple-700">
-                        <span>{ing.inventory?.name}</span>
-                        <span className="font-semibold">{ing.quantity} {ing.inventory?.unit}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* หมายเหตุเพิ่มเติม */}
-              <div>
-                <p className="text-sm font-semibold text-gray-700 mb-2">หมายเหตุเพิ่มเติม</p>
-                <input
-                  type="text"
-                  value={customize.customNote}
-                  onChange={e => setCustomize(c => ({ ...c, customNote: e.target.value }))}
-                  placeholder="เช่น ไม่ใส่น้ำแข็ง, เพิ่มช็อต, ใส่วิปครีม..."
-                  className="input w-full text-sm"
-                />
-              </div>
-
-              {/* จำนวน */}
-              <div>
-                <p className="text-sm font-semibold text-gray-700 mb-2">จำนวน</p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setCustomize(c => ({ ...c, qty: Math.max(1, c.qty - 1) }))}
-                    className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="text-xl font-bold w-8 text-center">{customize.qty}</span>
-                  <button
-                    onClick={() => setCustomize(c => ({ ...c, qty: c.qty + 1 }))}
-                    className="w-9 h-9 rounded-full bg-coffee-600 text-white flex items-center justify-center hover:bg-coffee-700"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-4 border-t border-gray-100">
-              <button onClick={confirmAdd} className="btn-primary w-full py-3 text-base flex items-center justify-center gap-2">
-                <Plus size={18} /> เพิ่มลงตะกร้า
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}

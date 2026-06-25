@@ -410,6 +410,16 @@ export default function Orders() {
                   <span className="font-bold text-gray-700">#{order.order_number}</span>
                   <span className="text-sm text-gray-500 hidden sm:inline">{fmtDate(order.created_at)}</span>
 
+                  {/* วิธีชำระ */}
+                  {order.payment_method && (
+                    <span className={`hidden sm:inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium
+                      ${order.payment_method === 'transfer'
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'bg-green-50 text-green-600'}`}>
+                      {order.payment_method === 'transfer' ? '📲 โอน' : '💵 เงินสด'}
+                    </span>
+                  )}
+
                   {/* ชื่อคนสั่ง */}
                   {order.cashier_name && (
                     <span className="hidden sm:inline-flex items-center gap-1 text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
@@ -459,31 +469,4 @@ export default function Orders() {
                       {s.next && (
                         <button onClick={() => updateStatus(order.id, s.next)}
                           className="btn-primary text-sm py-1.5 px-4">
-                          {s.nextLabel}
-                        </button>
-                      )}
-                      {!['completed','cancelled'].includes(order.status) && (
-                        <button onClick={() => cancelOrder(order.id)}
-                          className="btn-danger text-sm py-1.5 px-3">
-                          ยกเลิก
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handlePrint(order)}
-                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
-                                   bg-coffee-50 text-coffee-700 border border-coffee-200 hover:bg-coffee-100 transition-colors"
-                      >
-                        <Printer size={14} /> ปริ้น
-                      </button>
-                    </div>
-
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
+          
