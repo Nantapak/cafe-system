@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { printReceipt } from '../lib/printUtils'
+import { getCashierName } from '../lib/cashierStore'
 import { useAuth } from '../contexts/AuthContext'
 import { RefreshCw, ChevronDown, Printer, ShoppingCart, ChefHat, Bell, CheckCircle2, XCircle, ChevronLeft, ChevronRight, CalendarDays, Download } from 'lucide-react'
 import { exportOrders } from '../lib/exportUtils'
@@ -132,7 +133,8 @@ const fmtDisplayDate = (str) => new Date(str + 'T12:00:00').toLocaleDateString('
 })
 
 export default function Orders() {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
+  const isAdmin = user && role === 'admin'
   const [orders,      setOrders]      = useState([])
   const [loading,     setLoading]     = useState(true)
   const [syncing,     setSyncing]     = useState(false)
@@ -194,7 +196,10 @@ export default function Orders() {
     return () => { supabase.removeChannel(channel) }
   }, [fetchOrders])
 
-  const handlerName = user?.user_metadata?.name || user?.user_metadata?.username || 'ไม่ทราบ'
+  /* ชื่อคนกดอัพเดต: admin ใช้ชื่อ Supabase, ไม่ login ใช้ cashierStore */
+  const handlerName = isAdmin
+    ? (user.user_metadata?.name || user.user_metadata?.username || 'Admin')
+    : (getCashierName() || 'ไม่ทราบ')
 
   /* บันทึก per-step ว่าใครกดอะไร */
   const updateStatus = async (id, status) => {
@@ -207,7 +212,7 @@ export default function Orders() {
 
     await supabase.from('orders').update({
       status,
-      handled_by_id:   user?.id || null,
+      handled_by_id:   isAdmin ? (user?.id || null) : null,
       handled_by_name: handlerName,
       ...extra,
     }).eq('id', id)
@@ -226,7 +231,7 @@ export default function Orders() {
 
     await supabase.from('orders').update({
       status:            'cancelled',
-      handled_by_id:     user?.id || null,
+      handled_by_id:     isAdmin ? (user?.id || null) : null,
       handled_by_name:   handlerName,
       cancelled_by_name: handlerName,
     }).eq('id', id)

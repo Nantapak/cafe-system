@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth, ROLE_DEFAULT } from './contexts/AuthContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout    from './components/Layout'
 import Login     from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -11,7 +11,8 @@ import Staff       from './pages/Staff'
 import SalesReport from './pages/SalesReport'
 import Customers   from './pages/Customers'
 
-function ProtectedRoute({ children, allowedRoles }) {
+/** ป้องกันเฉพาะ admin routes */
+function AdminRoute({ children }) {
   const { user, role } = useAuth()
 
   if (user === undefined) {
@@ -22,20 +23,14 @@ function ProtectedRoute({ children, allowedRoles }) {
     )
   }
 
-  if (!user) return <Navigate to="/login" replace />
-
-  if (allowedRoles && !allowedRoles.includes(role)) {
-    return <Navigate to={ROLE_DEFAULT[role] || '/pos'} replace />
+  if (!user || role !== 'admin') {
+    return <Navigate to="/pos" replace />
   }
 
   return children
 }
 
-function RoleRedirect() {
-  const { role } = useAuth()
-  return <Navigate to={ROLE_DEFAULT[role] || '/pos'} replace />
-}
-
+/** หน้า Login: ถ้า admin ล็อกอินแล้ว → dashboard */
 function LoginGuard() {
   const { user, role } = useAuth()
   if (user === undefined) return (
@@ -43,7 +38,8 @@ function LoginGuard() {
       กำลังโหลด...
     </div>
   )
-  if (user) return <Navigate to={ROLE_DEFAULT[role] || '/pos'} replace />
+  if (user && role === 'admin') return <Navigate to="/dashboard" replace />
+  if (user) return <Navigate to="/pos" replace />
   return <Login />
 }
 
@@ -53,63 +49,24 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginGuard />} />
 
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<RoleRedirect />} />
+        {/* Layout ไม่บังคับ auth — POS/Orders เปิดเสรี */}
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Navigate to="/pos" replace />} />
 
-          <Route path="dashboard" element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
+          {/* เปิดเสรี — ไม่ต้อง login */}
+          <Route path="pos"       element={<POS />} />
+          <Route path="orders"    element={<Orders />} />
+          <Route path="customers" element={<Customers />} />
 
-          <Route path="pos" element={
-            <ProtectedRoute allowedRoles={['admin', 'cashier']}>
-              <POS />
-            </ProtectedRoute>
-          } />
-
-          <Route path="orders" element={
-            <ProtectedRoute allowedRoles={['admin', 'cashier', 'barista']}>
-              <Orders />
-            </ProtectedRoute>
-          } />
-
-          <Route path="menu" element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <MenuAdmin />
-            </ProtectedRoute>
-          } />
-
-          <Route path="inventory" element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <Inventory />
-            </ProtectedRoute>
-          } />
-
-          <Route path="staff" element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <Staff />
-            </ProtectedRoute>
-          } />
-
-          <Route path="reports" element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <SalesReport />
-            </ProtectedRoute>
-          } />
-
-          <Route path="customers" element={
-            <ProtectedRoute allowedRoles={['admin', 'cashier']}>
-              <Customers />
-            </ProtectedRoute>
-          } />
+          {/* Admin only */}
+          <Route path="dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+          <Route path="menu"      element={<AdminRoute><MenuAdmin /></AdminRoute>} />
+          <Route path="inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
+          <Route path="staff"     element={<AdminRoute><Staff /></AdminRoute>} />
+          <Route path="reports"   element={<AdminRoute><SalesReport /></AdminRoute>} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/pos" replace />} />
       </Routes>
     </AuthProvider>
   )

@@ -1,22 +1,22 @@
 import { Outlet } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+import { LogOut, UserCircle2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { getCashierName } from '../lib/cashierStore'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import ShopLogo from './ShopLogo'
 
-const ROLE_LABELS = {
-  admin:   'ผู้ดูแลระบบ',
-  cashier: 'แคชเชียร์',
-  barista: 'บาริสต้า',
-}
-
 export default function Layout() {
   const { user, role, signOut } = useAuth()
 
-  const displayName = user?.user_metadata?.name
-    || user?.user_metadata?.username
-    || 'ผู้ใช้'
+  /* ชื่อที่แสดงในแถบบน */
+  const displayName = user
+    ? (user.user_metadata?.name || user.user_metadata?.username || 'Admin')
+    : (getCashierName() || 'แคชเชียร์')
+
+  const roleLabel = user
+    ? (role === 'admin' ? 'ผู้ดูแลระบบ' : 'แคชเชียร์')
+    : 'แคชเชียร์'
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-coffee-50">
@@ -30,18 +30,18 @@ export default function Layout() {
         <div className="flex items-center gap-2.5">
           <div className="text-right">
             <p className="text-xs font-semibold leading-tight">{displayName}</p>
-            <p className="text-[10px] text-coffee-300 leading-none">
-              {ROLE_LABELS[role] || role}
-            </p>
+            <p className="text-[10px] text-coffee-300 leading-none">{roleLabel}</p>
           </div>
-          <button
-            onClick={signOut}
-            title="ออกจากระบบ"
-            className="p-2 rounded-lg bg-coffee-700 hover:bg-red-500/80
-                       active:bg-red-600 transition-colors"
-          >
-            <LogOut size={16} />
-          </button>
+          {user ? (
+            <button onClick={signOut} title="ออกจากระบบ"
+              className="p-2 rounded-lg bg-coffee-700 hover:bg-red-500/80 active:bg-red-600 transition-colors">
+              <LogOut size={16} />
+            </button>
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-coffee-700 flex items-center justify-center">
+              <UserCircle2 size={16} className="text-coffee-300" />
+            </div>
+          )}
         </div>
       </header>
 

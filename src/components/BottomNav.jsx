@@ -4,22 +4,27 @@ import { LayoutDashboard, ShoppingCart, ClipboardList, Package, BarChart2, Star 
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
-const ALL_NAV = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'แดชบอร์ด', roles: ['admin'] },
-  { to: '/pos',       icon: ShoppingCart,    label: 'POS',       roles: ['admin', 'cashier'] },
-  { to: '/orders',    icon: ClipboardList,   label: 'ออเดอร์',   roles: ['admin', 'cashier', 'barista'] },
-  { to: '/customers', icon: Star,            label: 'สมาชิก',    roles: ['admin', 'cashier'] },
-  { to: '/inventory', icon: Package,         label: 'สต็อก',     roles: ['admin'], lowStock: true },
-  { to: '/reports',   icon: BarChart2,       label: 'รายงาน',    roles: ['admin'] },
+const PUBLIC_NAV = [
+  { to: '/pos',       icon: ShoppingCart,  label: 'POS' },
+  { to: '/orders',    icon: ClipboardList, label: 'ออเดอร์' },
+  { to: '/customers', icon: Star,          label: 'สมาชิก' },
+]
+
+const ADMIN_EXTRA = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'แดชบอร์ด' },
+  { to: '/inventory', icon: Package,         label: 'สต็อก', lowStock: true },
+  { to: '/reports',   icon: BarChart2,       label: 'รายงาน' },
 ]
 
 export default function BottomNav() {
-  const { role } = useAuth()
-  const navItems = ALL_NAV.filter(n => n.roles.includes(role))
+  const { user, role } = useAuth()
+  const isAdmin = user && role === 'admin'
+  const navItems = isAdmin ? [...PUBLIC_NAV, ...ADMIN_EXTRA] : PUBLIC_NAV
+
   const [lowStockCount, setLowStockCount] = useState(0)
 
   useEffect(() => {
-    if (role !== 'admin') return
+    if (!isAdmin) return
     const fetch = async () => {
       const { data } = await supabase.from('inventory').select('quantity, min_quantity')
       setLowStockCount((data || []).filter(i => Number(i.quantity) <= Number(i.min_quantity)).length)
@@ -29,16 +34,14 @@ export default function BottomNav() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, fetch)
       .subscribe()
     return () => supabase.removeChannel(ch)
-  }, [role])
+  }, [isAdmin])
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-40"
          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="flex">
         {navItems.map(({ to, icon: Icon, label, lowStock }) => (
-          <NavLink
-            key={to}
-            to={to}
+          <NavLink key={to} to={to}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center pt-2 pb-1.5 gap-0.5 text-xs font-medium transition-colors
                ${isActive ? 'text-coffee-600' : 'text-gray-400 active:text-gray-600'}`

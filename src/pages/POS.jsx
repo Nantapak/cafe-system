@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { printReceipt } from '../lib/printUtils'
 import { generatePromptPayPayload, generateQRImageURL, PROMPTPAY_ID } from '../lib/promptpay'
-import { useAuth } from '../contexts/AuthContext'
+import { getCashierName, setCashierName } from '../lib/cashierStore'
 import {
   ShoppingCart, Plus, Minus, Trash2,
   CheckCircle, RotateCcw, X, Printer,
-  UserCircle2, Phone, Star, Gift,
+  UserCircle2, Phone, Star, Gift, ChevronDown,
 } from 'lucide-react'
 
 const SUGAR_OPTIONS = ['ไม่หวาน', 'หวาน 50%', 'หวานน้อย', 'หวานปกติ', 'เพิ่มหวาน']
@@ -18,8 +18,73 @@ const EMOJI = (catName = '') => {
   return '🥤'
 }
 
+/* ── Cashier Picker Modal ── */
+function CashierPicker({ onSelect }) {
+  const [staffList, setStaffList] = useState([])
+  const [custom,    setCustom]    = useState('')
+  const [loading,   setLoading]   = useState(true)
+
+  useEffect(() => {
+    supabase.from('staff').select('id, name').order('name').then(({ data }) => {
+      setStaffList(data || [])
+      setLoading(false)
+    })
+  }, [])
+
+  const confirm = (name) => {
+    if (!name?.trim()) return
+    setCashierName(name.trim())
+    onSelect(name.trim())
+  }
+
+  return (
+    <div className="fixed inset-0 bg-coffee-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="bg-coffee-800 px-6 py-5 text-center">
+          <p className="text-coffee-300 text-sm mb-1">5th Coffee</p>
+          <h2 className="text-white text-xl font-black">คุณคือใคร?</h2>
+          <p className="text-coffee-400 text-xs mt-1">เลือกชื่อเพื่อเริ่มรับออเดอร์</p>
+        </div>
+
+        <div className="p-5">
+          {loading ? (
+            <p className="text-center text-gray-400 py-4 text-sm">กำลังโหลด...</p>
+          ) : staffList.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {staffList.map(s => (
+                <button key={s.id} onClick={() => confirm(s.name)}
+                  className="py-3 px-4 rounded-2xl bg-coffee-50 border-2 border-coffee-200
+                             text-coffee-800 font-bold text-sm
+                             hover:border-coffee-500 hover:bg-coffee-100 active:scale-95
+                             transition-all">
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="flex gap-2 mt-2">
+            <input type="text" value={custom}
+              onChange={e => setCustom(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && confirm(custom)}
+              placeholder="หรือพิมพ์ชื่อ..."
+              className="flex-1 border-2 border-coffee-200 rounded-2xl px-4 py-2.5 text-sm
+                         focus:outline-none focus:border-coffee-500 placeholder-coffee-300" />
+            <button onClick={() => confirm(custom)} disabled={!custom.trim()}
+              className="px-4 py-2.5 bg-coffee-600 text-white rounded-2xl text-sm font-bold
+                         disabled:opacity-40 hover:bg-coffee-700 active:bg-coffee-800 transition-colors">
+              ยืนยัน
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function POS() {
-  const { user } = useAuth()
+  const [cashierName,    setCashier]    = useState(getCashierName)
+  const [showPicker,     setShowPicker] = useState(() => !getCashierName())
   const [categories, setCategories] = useState([])
   const [products,   setProducts]   = useState([])
   const [allSizes,   setAllSizes]   = useState([])
@@ -207,15 +272,15 @@ export default function POS() {
     if (!cart.length) return
     setSubmitting(true)
     try {
-      const cashierName = user?.user_metadata?.name || user?.user_metadata?.username || 'ไม่ทราบ'
+      const cashierName_ = cashierName || 'ไม่ทราบ'
       const { data: order, error: oErr } = await supabase
         .from('orders')
         .insert({
           total:            orderTotal,
           discount:         redeemDiscount,
           status:           'pending',
-          cashier_id:       user?.id || null,
-          cashier_name:     cashierName,
+          cashier_id:       null,
+          cashier_name:     cashierName_,
           customer_id:      customer?.id || null,
           points_earned:    customer ? cupsInOrder : 0,
           points_redeemed:  customer && pointsRedeem ? 10 : 0,
@@ -541,9 +606,26 @@ export default function POS() {
   return (
     <div className="flex gap-5 h-[calc(100vh-4rem)] md:h-[calc(100vh-3rem)]">
 
+      {/* ── CashierPicker overlay ── */}
+      {showPicker && (
+        <CashierPicker onSelect={(name) => { setCashier(name); setShowPicker(false) }} />
+      )}
+
       {/* ════════════ เมนู ════════════ */}
       <div className="flex-1 flex flex-col min-w-0">
-        <h1 className="text-xl font-bold text-gray-800 mb-4">POS / แคชเชียร์</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-bold text-gray-800">POS / แคชเชียร์</h1>
+          <button
+            onClick={() => setShowPicker(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                       bg-coffee-50 border border-coffee-200 text-coffee-700
+                       hover:bg-coffee-100 text-sm font-medium transition-colors"
+          >
+            <UserCircle2 size={15} />
+            <span className="max-w-[120px] truncate">{cashierName || 'เลือกแคชเชียร์'}</span>
+            <ChevronDown size={13} />
+          </button>
+        </div>
 
         {/* หมวดหมู่ */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1 shrink-0">
