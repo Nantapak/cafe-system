@@ -98,6 +98,7 @@ export default function POS() {
   const [cartOpen,   setCartOpen]   = useState(false)
   const [costInfo,   setCostInfo]   = useState({ perCup: null, breakdown: [] })
   const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [cashReceived,  setCashReceived]  = useState('')
 
   /* ── สมาชิก ── */
   const [customer,      setCustomer]      = useState(null)
@@ -384,6 +385,7 @@ export default function POS() {
       setSuccess(`ออเดอร์ #${order.order_number} สำเร็จ! ยอด ฿${orderTotal.toLocaleString()}`)
       clearCart()
       clearCustomer()
+      setCashReceived('')
     } catch (e) {
       alert('เกิดข้อผิดพลาด: ' + e.message)
     } finally {
@@ -723,6 +725,41 @@ export default function POS() {
                 ))}
               </div>
             </div>
+            {paymentMethod === 'cash' && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5 font-medium">รับเงินมา</p>
+                <div className="flex gap-1.5 mb-1.5 flex-wrap">
+                  {[20,50,100,500,1000].map(v => (
+                    <button key={v} type="button"
+                      onClick={() => setCashReceived(String(v >= orderTotal ? v : Math.ceil(orderTotal/v)*v))}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                      ฿{v}
+                    </button>
+                  ))}
+                  <button type="button"
+                    onClick={() => setCashReceived(String(orderTotal))}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                    เต็ม
+                  </button>
+                </div>
+                <input
+                  type="number" inputMode="numeric"
+                  value={cashReceived}
+                  onChange={e => setCashReceived(e.target.value)}
+                  placeholder="กรอกจำนวนเงิน"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-coffee-400"
+                />
+                {cashReceived !== '' && Number(cashReceived) >= orderTotal && (
+                  <div className="mt-1.5 flex justify-between items-center bg-green-50 rounded-xl px-3 py-2">
+                    <span className="text-sm text-green-700 font-medium">เงินทอน</span>
+                    <span className="text-lg font-bold text-green-600">฿{(Number(cashReceived) - orderTotal).toLocaleString()}</span>
+                  </div>
+                )}
+                {cashReceived !== '' && Number(cashReceived) < orderTotal && (
+                  <p className="mt-1 text-xs text-red-500 text-right">รับเงินมาไม่พอครับ</p>
+                )}
+              </div>
+            )}
             {redeemDiscount > 0 && (
               <div className="flex justify-between items-center text-sm">
                 <span className="text-green-600">ส่วนลดแต้ม 🎁</span>
@@ -813,6 +850,41 @@ export default function POS() {
                   ))}
                 </div>
               </div>
+            {paymentMethod === 'cash' && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5 font-medium">รับเงินมา</p>
+                <div className="flex gap-1.5 mb-1.5 flex-wrap">
+                  {[20,50,100,500,1000].map(v => (
+                    <button key={v} type="button"
+                      onClick={() => setCashReceived(String(v >= orderTotal ? v : Math.ceil(orderTotal/v)*v))}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                      ฿{v}
+                    </button>
+                  ))}
+                  <button type="button"
+                    onClick={() => setCashReceived(String(orderTotal))}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                    เต็ม
+                  </button>
+                </div>
+                <input
+                  type="number" inputMode="numeric"
+                  value={cashReceived}
+                  onChange={e => setCashReceived(e.target.value)}
+                  placeholder="กรอกจำนวนเงิน"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-coffee-400"
+                />
+                {cashReceived !== '' && Number(cashReceived) >= orderTotal && (
+                  <div className="mt-1.5 flex justify-between items-center bg-green-50 rounded-xl px-3 py-2">
+                    <span className="text-sm text-green-700 font-medium">เงินทอน</span>
+                    <span className="text-lg font-bold text-green-600">฿{(Number(cashReceived) - orderTotal).toLocaleString()}</span>
+                  </div>
+                )}
+                {cashReceived !== '' && Number(cashReceived) < orderTotal && (
+                  <p className="mt-1 text-xs text-red-500 text-right">รับเงินมาไม่พอครับ</p>
+                )}
+              </div>
+            )}
               {redeemDiscount > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-green-600">ส่วนลดแต้ม 🎁</span>
