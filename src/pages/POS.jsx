@@ -568,12 +568,14 @@ export default function POS() {
                 ฿{(item.price * item.qty).toLocaleString()}
               </p>
             </div>
-            <div className="flex items-center gap-1 shrink-0 mt-0.5">
-              <button onClick={() => openEditItem(item)} className="text-gray-300 hover:text-coffee-500 p-0.5">
-                <Pencil size={13} />
+            <div className="flex flex-col items-center gap-2 shrink-0 ml-1">
+              <button onClick={() => openEditItem(item)}
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-coffee-50 text-coffee-400 hover:bg-coffee-100 hover:text-coffee-600 active:bg-coffee-200">
+                <Pencil size={16} />
               </button>
-              <button onClick={() => removeItem(item.cartKey)} className="text-gray-300 hover:text-red-400 p-0.5">
-                <Trash2 size={14} />
+              <button onClick={() => removeItem(item.cartKey)}
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-red-50 text-red-300 hover:bg-red-100 hover:text-red-500 active:bg-red-200">
+                <Trash2 size={16} />
               </button>
             </div>
           </div>
