@@ -53,7 +53,8 @@ export default function Dashboard() {
 
     const now        = new Date()
     const today      = now.toISOString().slice(0, 10)
-    const monthStart = today.slice(0, 7) + '-01'
+    const thirtyAgo  = new Date(now); thirtyAgo.setDate(thirtyAgo.getDate() - 29)
+    const monthStart = thirtyAgo.toISOString().slice(0, 10)
 
     const [
       { data: todayOrds },
@@ -198,7 +199,7 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={TrendingUp}    label="ยอดขายวันนี้"   value={`฿${todayRevenue.toLocaleString()}`}  sub={`${todayCount} ออเดอร์`}           color="coffee" pulse={live} />
-        <StatCard icon={ShoppingBag}   label="ยอดขายเดือนนี้" value={`฿${monthRevenue.toLocaleString()}`}  sub="รวมทุกออเดอร์"                      color="green"  pulse={live} />
+        <StatCard icon={ShoppingBag}   label="ยอดขาย 30 วัน" value={`฿${monthRevenue.toLocaleString()}`}  sub="รวมทุกออเดอร์"                      color="green"  pulse={live} />
         <StatCard icon={Clock}         label="รอดำเนินการ"     value={pendingCount}                         sub="ออเดอร์ที่ยังค้างอยู่"               color="blue"   pulse={live} />
         <StatCard icon={AlertTriangle} label="สต็อกใกล้หมด"   value={lowStock.length}                      sub={lowStock.length > 0 ? 'ต้องเติมด่วน!' : 'ปกติ'} color={lowStock.length > 0 ? 'red' : 'green'} />
       </div>
