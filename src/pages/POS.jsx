@@ -94,6 +94,7 @@ export default function POS() {
   const [submitting, setSubmitting] = useState(false)
   const [success,    setSuccess]    = useState(null)
   const [lastOrder,  setLastOrder]  = useState(null)
+  const [editingOrder, setEditingOrder] = useState(null) // ออเดอร์ที่กำลังแก้ไข (เพิ่มรายการ)
   const [customize,  setCustomize]  = useState(null)
   const [cartOpen,   setCartOpen]   = useState(false)
   const [costInfo,   setCostInfo]   = useState({ perCup: null, breakdown: [] })
@@ -129,6 +130,17 @@ export default function POS() {
   /* ── Cart operations ── */
   const removeItem  = (cartKey) => setCart(c => c.filter(i => i.cartKey !== cartKey))
   const clearCart   = () => setCart([])
+  const startEditOrder = (order) => {
+    setEditingOrder(order)
+    setSuccess(null)
+    setLastOrder(null)
+    setCart([])
+    setCashReceived('')
+  }
+  const cancelEditOrder = () => {
+    setEditingOrder(null)
+    setCart([])
+  }
   const updateQty   = (cartKey, delta) =>
     setCart(c => c.map(i =>
       i.cartKey === cartKey
@@ -274,6 +286,70 @@ export default function POS() {
     if (!cart.length) return
     setSubmitting(true)
     try {
+      /* ── โหมดแก้ไขออเดอร์: เพิ่มรายการเข้าออเดอร์เดิม ── */
+      if (editingOrder) {
+        const addItems = cart.map(i => ({
+          order_id:   editingOrder.id,
+          product_id: i.id,
+          name:       i.sizeName ? `${i.name} (${i.sizeName})` : i.name,
+          price:      i.price,
+          quantity:   i.qty,
+          note:       i.note || null,
+        }))
+        const { error: iErr } = await supabase.from('order_items').insert(addItems)
+        if (iErr) throw iErr
+
+        const newTotal = Number(editingOrder.total) + orderTotal
+        await supabase.from('orders').update({ total: newTotal }).eq('id', editingOrder.id)
+
+        // ตัดสต็อกสำหรับรายการใหม่เท่านั้น
+        const productIds = [...new Set(cart.map(i => i.id))]
+        const { data: ingRows } = await supabase
+          .from('product_ingredients')
+          .select('product_id, inventory_id, quantity, size_id')
+          .in('product_id', productIds)
+        if (ingRows?.length) {
+          const deductMap = {}
+          for (const item of cart) {
+            let ings = ingRows.filter(r => r.product_id === item.id && r.size_id === item.sizeId)
+            if (!ings.length) ings = ingRows.filter(r => r.product_id === item.id && !r.size_id)
+            const general  = ingRows.filter(r => r.product_id === item.id && !r.size_id)
+            const toDeduct = item.sizeId
+              ? ings.concat(general.filter(g => !ings.find(x => x.inventory_id === g.inventory_id)))
+              : ings
+            for (const ing of toDeduct) {
+              deductMap[ing.inventory_id] = (deductMap[ing.inventory_id] || 0) + Number(ing.quantity) * item.qty
+            }
+          }
+          const invIds = Object.keys(deductMap)
+          if (invIds.length) {
+            const { data: invRows } = await supabase.from('inventory').select('id, quantity').in('id', invIds)
+            await Promise.all([
+              ...invRows.map(inv =>
+                supabase.from('inventory')
+                  .update({ quantity: Math.max(0, Number(inv.quantity) - deductMap[inv.id]) })
+                  .eq('id', inv.id)
+              ),
+              supabase.from('inventory_transactions').insert(
+                invRows.map(inv => ({
+                  inventory_id: inv.id, type: 'out',
+                  quantity: deductMap[inv.id],
+                  note: `เพิ่มรายการออเดอร์ #${editingOrder.order_number}`,
+                }))
+              ),
+            ])
+          }
+        }
+
+        setSuccess(`เพิ่มรายการในออเดอร์ #${editingOrder.order_number} สำเร็จ! (+฿${orderTotal.toLocaleString()})`)
+        setLastOrder({ order: { ...editingOrder, total: newTotal }, items: addItems })
+        setEditingOrder(null)
+        clearCart()
+        setCashReceived('')
+        return
+      }
+
+      /* ── โหมดปกติ: สร้างออเดอร์ใหม่ ── */
       const cashierName_ = cashierName || 'ไม่ทราบ'
       const { data: order, error: oErr } = await supabase
         .from('orders')
@@ -591,9 +667,9 @@ export default function POS() {
           </div>
         )}
 
-        {/* ปุ่มปริ้น */}
+        {/* ปุ่มปริ้น + แก้ไขออเดอร์ */}
         {lastOrder && (
-          <div className="flex justify-center">
+          <div className="flex justify-center gap-2 flex-wrap">
             <button
               onClick={() => printReceipt(lastOrder.order, lastOrder.items)}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium
@@ -601,6 +677,15 @@ export default function POS() {
             >
               <Printer size={13} /> ปริ้นใบเสร็จ
             </button>
+            {lastOrder.order.status !== 'completed' && lastOrder.order.status !== 'cancelled' && (
+              <button
+                onClick={() => startEditOrder(lastOrder.order)}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium
+                           bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition-colors"
+              >
+                ✏️ เพิ่มรายการ
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -630,6 +715,19 @@ export default function POS() {
             <ChevronDown size={13} />
           </button>
         </div>
+
+        {/* แบนเนอร์โหมดแก้ไขออเดอร์ */}
+        {editingOrder && (
+          <div className="mb-3 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2 flex items-center justify-between">
+            <p className="text-sm font-medium text-amber-800">
+              ✏️ กำลังเพิ่มรายการใน <span className="font-bold">ออเดอร์ #{editingOrder.order_number}</span>
+            </p>
+            <button onClick={cancelEditOrder}
+              className="text-xs text-amber-600 hover:text-red-500 font-medium ml-3 shrink-0">
+              ยกเลิก
+            </button>
+          </div>
+        )}
 
         {/* หมวดหมู่ */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1 shrink-0">
