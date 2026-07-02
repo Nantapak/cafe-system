@@ -132,7 +132,7 @@ export default function Dashboard() {
     Promise.all([fetchLive(), fetchCharts()]).then(() => setLoading(false))
   }, [fetchLive, fetchCharts])
 
-  /* ── Realtime subscription ── */
+  /* ── Realtime subscription + polling fallback ── */
   useEffect(() => {
     const ch = supabase.channel('dashboard-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' },
@@ -140,7 +140,17 @@ export default function Dashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' },
         () => fetchLive({ silent: true }))
       .subscribe(status => setLive(status === 'SUBSCRIBED'))
-    return () => supabase.removeChannel(ch)
+
+    /* polling ทุก 30 วินาที กรณี realtime ไม่ทำงาน */
+    const timer = setInterval(() => {
+      fetchLive({ silent: true })
+      fetchCharts()
+    }, 30000)
+
+    return () => {
+      supabase.removeChannel(ch)
+      clearInterval(timer)
+    }
   }, [fetchLive, fetchCharts])
 
   if (loading) return (
