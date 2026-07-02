@@ -136,12 +136,12 @@ export default function Dashboard() {
   useEffect(() => {
     const ch = supabase.channel('dashboard-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' },
-        () => fetchLive({ silent: true }))
+        () => { fetchLive({ silent: true }); fetchCharts() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' },
         () => fetchLive({ silent: true }))
       .subscribe(status => setLive(status === 'SUBSCRIBED'))
     return () => supabase.removeChannel(ch)
-  }, [fetchLive])
+  }, [fetchLive, fetchCharts])
 
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-coffee-600 text-lg">กำลังโหลดข้อมูล... ☕</div>

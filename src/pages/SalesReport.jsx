@@ -217,6 +217,15 @@ export default function SalesReport() {
 
   useEffect(() => { fetchReport() }, [fetchReport])
 
+  /* ── Realtime — รีเฟรชอัตโนมัติเมื่อมีออเดอร์ใหม่ ── */
+  useEffect(() => {
+    const ch = supabase.channel('sales-report-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' },
+        () => fetchReport({ silent: true }))
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [fetchReport])
+
   const maxRev = Math.max(...chartData.map(d => d.revenue), 1)
 
   const { start, end } = getRange(preset, customStart, customEnd)
