@@ -330,11 +330,28 @@ export default function SalesReport() {
           {/* Bar chart */}
           {chartData.some(d => d.revenue > 0) ? (
             <div className="card px-4 pt-4 pb-2">
-              <p className="text-sm font-semibold text-gray-700 mb-4">
-                {isHourly ? '📊 ยอดขายรายชั่วโมง' : '📊 ยอดขายรายวัน'}
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-gray-700">
+                  {isHourly ? '📊 ยอดขายรายชั่วโมง' : '📊 ยอดขายรายวัน'}
+                </p>
+                {!isHourly && (
+                  <p className="text-xs text-gray-400">คลิกแท่งกราฟเพื่อดูรายละเอียดวันนั้น</p>
+                )}
+              </div>
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
+                  onClick={!isHourly ? (d) => {
+                    if (d?.activePayload?.[0]?.payload?.date) {
+                      const date = d.activePayload[0].payload.date
+                      setPreset('custom')
+                      setCustomStart(date)
+                      setCustomEnd(date)
+                    }
+                  } : undefined}
+                  style={!isHourly ? { cursor: 'pointer' } : undefined}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                   <XAxis
                     dataKey="label"
