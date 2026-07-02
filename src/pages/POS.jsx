@@ -4,7 +4,7 @@ import { printReceipt } from '../lib/printUtils'
 import { generatePromptPayPayload, generateQRImageURL, PROMPTPAY_ID } from '../lib/promptpay'
 import { getCashierName, setCashierName } from '../lib/cashierStore'
 import {
-  ShoppingCart, Plus, Minus, Trash2,
+  ShoppingCart, Plus, Minus, Trash2, Pencil,
   CheckCircle, RotateCcw, X, Printer,
   UserCircle2, Phone, Star, Gift, ChevronDown,
 } from 'lucide-react'
