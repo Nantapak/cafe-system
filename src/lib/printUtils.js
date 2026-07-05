@@ -87,7 +87,7 @@ export function printReceipt(order, items, memberInfo = null) {
     /* ── กระดาษ 80mm ── */
     @page {
       size: 80mm auto;
-      margin: 2mm 3mm;
+      margin: 4mm 6mm;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -100,10 +100,10 @@ export function printReceipt(order, items, memberInfo = null) {
       font-family: 'Sarabun', 'TH Sarabun New', 'Courier New', monospace;
       font-size: 13px;
       color: #000;
-      width: 74mm;
-      max-width: 74mm;
+      width: 68mm;
+      max-width: 68mm;
       margin: 0 auto;
-      padding: 0;
+      padding: 2mm 0;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
@@ -113,8 +113,8 @@ export function printReceipt(order, items, memberInfo = null) {
         width: 80mm;
       }
       body {
-        width: 74mm;
-        max-width: 74mm;
+        width: 68mm;
+        max-width: 68mm;
       }
     }
 
