@@ -87,24 +87,29 @@ export function printReceipt(order, items, memberInfo = null) {
     /* ── กระดาษ 80mm thermal ── */
     @page {
       size: 80mm auto;
-      margin: 2mm 5mm;
+      margin: 0mm;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 80mm;
+    }
 
     body {
       font-family: 'Sarabun', 'TH Sarabun New', 'Courier New', monospace;
       font-size: 12px;
       color: #000;
-      width: 100%;
-      padding: 2mm 0;
+      padding: 2mm 4mm;
+      overflow-wrap: break-word;
+      word-break: break-word;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
     @media print {
-      body {
-        width: 100%;
+      html, body {
+        width: 80mm;
       }
     }
 
