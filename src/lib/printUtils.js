@@ -84,7 +84,7 @@ export function printReceipt(order, items, memberInfo = null) {
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
 
-    /* ── กระดาษ 80mm: ให้ printer driver จัดการขนาดกระดาษ ── */
+    /* ── กระดาษ 80mm ── */
     @page {
       size: 80mm auto;
       margin: 0;
@@ -100,20 +100,22 @@ export function printReceipt(order, items, memberInfo = null) {
       font-family: 'Sarabun', 'TH Sarabun New', 'Courier New', monospace;
       font-size: 13px;
       color: #000;
-      width: 80mm;
-      max-width: 80mm;
-      padding: 3mm 5mm;
+      width: 72mm;
+      max-width: 72mm;
+      margin: 0 auto;
+      padding: 3mm 0;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
     @media print {
-      html, body {
+      html {
         width: 80mm;
-        max-width: 80mm;
       }
       body {
-        padding: 3mm 5mm;
+        width: 72mm;
+        max-width: 72mm;
+        margin: 0 auto;
       }
     }
 
