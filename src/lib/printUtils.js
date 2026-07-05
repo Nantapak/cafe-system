@@ -84,29 +84,37 @@ export function printReceipt(order, items, memberInfo = null) {
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
 
-    /* ── กระดาษ 80mm: margin 4mm ซ้าย-ขวา = พื้นที่พิมพ์ 72mm ── */
+    /* ── กระดาษ 80mm ── */
     @page {
       size: 80mm auto;
-      margin: 4mm 4mm;
+      margin: 2mm 3mm;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      width: 80mm;
+    }
 
     body {
       font-family: 'Sarabun', 'TH Sarabun New', 'Courier New', monospace;
       font-size: 13px;
       color: #000;
-      width: 72mm;
-      max-width: 72mm;
+      width: 74mm;
+      max-width: 74mm;
+      margin: 0 auto;
       padding: 0;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
     @media print {
-      html, body {
-        width: 72mm;
-        max-width: 72mm;
+      html {
+        width: 80mm;
+      }
+      body {
+        width: 74mm;
+        max-width: 74mm;
       }
     }
 
@@ -259,7 +267,7 @@ export const printBoth        = printReceipt
    Helper: เปิดหน้าต่างปริ้น
 ═══════════════════════════════════════════════════ */
 function openPrintWindow(html, name) {
-  const win = window.open('', name, 'width=380,height=600')
+  const win = window.open('', name, 'width=302,height=600')
   if (!win) {
     alert('กรุณาอนุญาต Pop-up จากเว็บไซต์นี้ก่อนปริ้น')
     return
