@@ -84,9 +84,9 @@ export function printReceipt(order, items, memberInfo = null) {
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
 
-    /* ── กระดาษ 80mm portrait ── */
+    /* ── กระดาษ 80mm thermal ── */
     @page {
-      size: 80mm 297mm portrait;
+      size: 80mm auto;
       margin: 0;
     }
 
@@ -109,10 +109,6 @@ export function printReceipt(order, items, memberInfo = null) {
     }
 
     @media print {
-      @page {
-        size: 80mm 297mm portrait;
-        margin: 0;
-      }
       html {
         width: 80mm;
       }
