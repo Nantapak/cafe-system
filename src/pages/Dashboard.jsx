@@ -4,7 +4,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts'
-import { TrendingUp, ShoppingBag, AlertTriangle, Clock, RefreshCw } from 'lucide-react'
+import { TrendingUp, ShoppingBag, AlertTriangle, RefreshCw } from 'lucide-react'
 
 const COLORS = ['#a96318','#dc9a3a','#e8bc6c','#f3d9a8','#8a4b18']
 
@@ -39,7 +39,6 @@ export default function Dashboard() {
   const [todayRevenue,  setTodayRevenue]  = useState(0)
   const [todayCount,    setTodayCount]    = useState(0)
   const [monthRevenue,  setMonthRevenue]  = useState(0)
-  const [pendingCount,  setPendingCount]  = useState(0)
   const [recentOrders,  setRecentOrders]  = useState([])
   const [lowStock,      setLowStock]      = useState([])
 
@@ -59,7 +58,6 @@ export default function Dashboard() {
     const [
       { data: todayOrds },
       { data: monthOrds },
-      { count: pending },
       { data: recent },
       { data: inv },
     ] = await Promise.all([
@@ -67,8 +65,6 @@ export default function Dashboard() {
         .gte('created_at', today + 'T00:00:00').neq('status', 'cancelled'),
       supabase.from('orders').select('total')
         .gte('created_at', monthStart + 'T00:00:00').neq('status', 'cancelled'),
-      supabase.from('orders').select('id', { count: 'exact', head: true })
-        .in('status', ['pending', 'preparing']),
       supabase.from('orders').select('order_number, total, status, created_at, cashier_name')
         .order('created_at', { ascending: false }).limit(6),
       supabase.from('inventory').select('id, name, unit, quantity, min_quantity'),
@@ -77,7 +73,6 @@ export default function Dashboard() {
     setTodayRevenue(todayOrds?.reduce((s, o) => s + Number(o.total), 0) || 0)
     setTodayCount(todayOrds?.length || 0)
     setMonthRevenue(monthOrds?.reduce((s, o) => s + Number(o.total), 0) || 0)
-    setPendingCount(pending || 0)
     setRecentOrders(recent || [])
     setLowStock((inv || []).filter(i => Number(i.quantity) <= Number(i.min_quantity)))
 
@@ -200,7 +195,6 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={TrendingUp}    label="ยอดขายวันนี้"   value={`฿${todayRevenue.toLocaleString()}`}  sub={`${todayCount} ออเดอร์`}           color="coffee" pulse={live} />
         <StatCard icon={ShoppingBag}   label="ยอดขาย 30 วัน" value={`฿${monthRevenue.toLocaleString()}`}  sub="รวมทุกออเดอร์"                      color="green"  pulse={live} />
-        <StatCard icon={Clock}         label="รอดำเนินการ"     value={pendingCount}                         sub="ออเดอร์ที่ยังค้างอยู่"               color="blue"   pulse={live} />
         <StatCard icon={AlertTriangle} label="สต็อกใกล้หมด"   value={lowStock.length}                      sub={lowStock.length > 0 ? 'ต้องเติมด่วน!' : 'ปกติ'} color={lowStock.length > 0 ? 'red' : 'green'} />
       </div>
 
