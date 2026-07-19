@@ -100,6 +100,8 @@ export default function POS() {
   const [costInfo,   setCostInfo]   = useState({ perCup: null, breakdown: [] })
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [cashReceived,  setCashReceived]  = useState('')
+  const [discountType,  setDiscountType]  = useState('baht') // 'baht' | 'percent'
+  const [discountInput, setDiscountInput] = useState('')
 
   /* ── สมาชิก ── */
   const [customer,      setCustomer]      = useState(null)
@@ -129,7 +131,7 @@ export default function POS() {
 
   /* ── Cart operations ── */
   const removeItem  = (cartKey) => setCart(c => c.filter(i => i.cartKey !== cartKey))
-  const clearCart   = () => setCart([])
+  const clearCart   = () => { setCart([]); setDiscountInput('') }
   const openEditItem = (item) => {
     const product = products.find(p => p.id === item.id)
     if (!product) return
@@ -157,7 +159,11 @@ export default function POS() {
   const cupsInOrder    = cart.reduce((s, i) => s + i.qty, 0)
   const cheapestPrice  = cart.length ? Math.min(...cart.map(i => i.price)) : 0
   const redeemDiscount = (pointsRedeem && customer?.points >= 10) ? cheapestPrice : 0
-  const orderTotal     = Math.max(0, total - redeemDiscount)
+  const manualDiscount = discountType === 'percent'
+    ? Math.round(total * (Math.min(100, Number(discountInput) || 0) / 100))
+    : Math.min(total, Number(discountInput) || 0)
+  const totalDiscount  = redeemDiscount + manualDiscount
+  const orderTotal     = Math.max(0, total - totalDiscount)
 
   /* ── ค้นหาสมาชิก: พิมพ์แล้วเด้ง autocomplete ── */
   const onPhoneChange = async (val) => {
@@ -309,7 +315,7 @@ export default function POS() {
         .from('orders')
         .insert({
           total:            orderTotal,
-          discount:         redeemDiscount,
+          discount:         redeemDiscount + manualDiscount,
           status:           'completed',
           completed_at:     new Date().toISOString(),
           completed_by_name: cashierName_,
@@ -799,6 +805,43 @@ export default function POS() {
                 )}
               </div>
             )}
+            {/* ส่วนลดเพิ่มเติม */}
+            <div>
+              <p className="text-xs text-gray-500 mb-1.5 font-medium">ส่วนลดเพิ่มเติม</p>
+              <div className="flex gap-1.5 items-center">
+                <div className="flex rounded-xl border border-gray-200 overflow-hidden shrink-0">
+                  <button type="button"
+                    onClick={() => setDiscountType('baht')}
+                    className={`px-2.5 py-1.5 text-xs font-bold transition-colors ${discountType === 'baht' ? 'bg-orange-500 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                    ฿
+                  </button>
+                  <button type="button"
+                    onClick={() => setDiscountType('percent')}
+                    className={`px-2.5 py-1.5 text-xs font-bold transition-colors ${discountType === 'percent' ? 'bg-orange-500 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                    %
+                  </button>
+                </div>
+                <input
+                  type="number" inputMode="numeric"
+                  value={discountInput}
+                  onChange={e => setDiscountInput(e.target.value)}
+                  placeholder={discountType === 'baht' ? 'จำนวนเงิน' : '0-100'}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-coffee-400"
+                />
+                {discountInput && (
+                  <button type="button" onClick={() => setDiscountInput('')}
+                    className="shrink-0 text-gray-400 hover:text-red-400 p-1">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+            {manualDiscount > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-orange-600">ส่วนลด{discountType === 'percent' ? ` ${discountInput}%` : ''} 🏷️</span>
+                <span className="font-semibold text-orange-600">-฿{manualDiscount.toLocaleString()}</span>
+              </div>
+            )}
             {redeemDiscount > 0 && (
               <div className="flex justify-between items-center text-sm">
                 <span className="text-green-600">ส่วนลดแต้ม 🎁</span>
@@ -808,7 +851,7 @@ export default function POS() {
             <div className="flex justify-between items-center">
               <span className="text-gray-600 font-medium">รวมทั้งหมด</span>
               <div className="text-right">
-                {redeemDiscount > 0 && (
+                {totalDiscount > 0 && (
                   <p className="text-xs text-gray-400 line-through">฿{total.toLocaleString()}</p>
                 )}
                 <span className="text-xl font-bold text-coffee-700">฿{orderTotal.toLocaleString()}</span>
@@ -924,6 +967,43 @@ export default function POS() {
                 )}
               </div>
             )}
+              {/* ส่วนลดเพิ่มเติม */}
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5 font-medium">ส่วนลดเพิ่มเติม</p>
+                <div className="flex gap-1.5 items-center">
+                  <div className="flex rounded-xl border border-gray-200 overflow-hidden shrink-0">
+                    <button type="button"
+                      onClick={() => setDiscountType('baht')}
+                      className={`px-2.5 py-1.5 text-xs font-bold transition-colors ${discountType === 'baht' ? 'bg-orange-500 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                      ฿
+                    </button>
+                    <button type="button"
+                      onClick={() => setDiscountType('percent')}
+                      className={`px-2.5 py-1.5 text-xs font-bold transition-colors ${discountType === 'percent' ? 'bg-orange-500 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                      %
+                    </button>
+                  </div>
+                  <input
+                    type="number" inputMode="numeric"
+                    value={discountInput}
+                    onChange={e => setDiscountInput(e.target.value)}
+                    placeholder={discountType === 'baht' ? 'จำนวนเงิน' : '0-100'}
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-coffee-400"
+                  />
+                  {discountInput && (
+                    <button type="button" onClick={() => setDiscountInput('')}
+                      className="shrink-0 text-gray-400 hover:text-red-400 p-1">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {manualDiscount > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-orange-600">ส่วนลด{discountType === 'percent' ? ` ${discountInput}%` : ''} 🏷️</span>
+                  <span className="font-semibold text-orange-600">-฿{manualDiscount.toLocaleString()}</span>
+                </div>
+              )}
               {redeemDiscount > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-green-600">ส่วนลดแต้ม 🎁</span>
@@ -933,7 +1013,7 @@ export default function POS() {
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 font-medium">รวมทั้งหมด</span>
                 <div className="text-right">
-                  {redeemDiscount > 0 && (
+                  {totalDiscount > 0 && (
                     <p className="text-xs text-gray-400 line-through">฿{total.toLocaleString()}</p>
                   )}
                   <span className="text-2xl font-bold text-coffee-700">฿{orderTotal.toLocaleString()}</span>
