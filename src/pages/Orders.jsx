@@ -514,16 +514,10 @@ export default function Orders() {
 
                     {/* Action buttons */}
                     <div className="flex flex-wrap gap-2 pt-1">
-                      {s.next && (
-                        <button onClick={() => updateStatus(order.id, s.next)}
-                          className="btn-primary text-sm py-1.5 px-4">
-                          {s.nextLabel}
-                        </button>
-                      )}
                       {!['completed','cancelled'].includes(order.status) && (
                         <button onClick={() => cancelOrder(order.id)}
                           className="btn-danger text-sm py-1.5 px-3">
-                          ยกเลิก
+                          ยกเลิกออเดอร์
                         </button>
                       )}
                       <button
