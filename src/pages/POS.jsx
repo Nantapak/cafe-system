@@ -310,7 +310,9 @@ export default function POS() {
         .insert({
           total:            orderTotal,
           discount:         redeemDiscount,
-          status:           'pending',
+          status:           'completed',
+          completed_at:     new Date().toISOString(),
+          completed_by_name: cashierName_,
           payment_method:   paymentMethod,
           cashier_id:       null,
           cashier_name:     cashierName_,
